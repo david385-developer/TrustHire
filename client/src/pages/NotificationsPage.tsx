@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Bell } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -24,6 +25,7 @@ const NotificationsPage: React.FC = () => {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [unreadOnly, setUnreadOnly] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchData = async (nextPage = page, nextUnreadOnly = unreadOnly) => {
     setLoading(true);
@@ -33,9 +35,11 @@ const NotificationsPage: React.FC = () => {
       });
       setItems(data.data || []);
       setTotalPages(data.pagination?.totalPages || 1);
-    } catch (error: any) {
+      setError(null);
+    } catch (err: any) {
       setItems([]);
-      toast.error(error.response?.data?.message || 'Failed to load notifications');
+      console.error('Failed to load notifications:', err.response?.data?.message || err.message);
+      setError('Unable to load notifications at this time.');
     } finally {
       setLoading(false);
     }
@@ -105,6 +109,14 @@ const NotificationsPage: React.FC = () => {
           {[...Array(6)].map((_, index) => (
             <div key={index} className="h-16 bg-gray-100 animate-pulse rounded" />
           ))}
+        </div>
+      ) : error ? (
+        <div className="text-center py-12 bg-white rounded-xl shadow-sm border border-gray-100">
+          <Bell className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+          <p className="text-gray-500">{error}</p>
+          <button onClick={() => fetchData()} className="text-[#1B4D3E] font-semibold hover:underline mt-2">
+            Try again
+          </button>
         </div>
       ) : items.length > 0 ? (
         <div className="space-y-3">

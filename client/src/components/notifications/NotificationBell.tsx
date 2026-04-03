@@ -20,10 +20,14 @@ const NotificationBell: React.FC = () => {
       try {
         const { data } = await api.get('/notifications/unread-count');
         setUnreadCount(data.count || 0);
-      } catch {
-        // ignore
+      } catch (err: any) {
+        console.error('Failed to fetch unread count:',
+          err.response?.data?.message || err.message);
+        // Do NOT show error to user, just silently fail
+        setUnreadCount(0);
       }
     };
+
     fetchCount();
     const interval = setInterval(fetchCount, 30000);
     return () => clearInterval(interval);
@@ -78,4 +82,3 @@ const NotificationBell: React.FC = () => {
 };
 
 export default NotificationBell;
-

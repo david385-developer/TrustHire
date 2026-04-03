@@ -1,127 +1,146 @@
 const Notification = require('../models/Notification');
+const PushSubscription = require('../models/PushSubscription');
 
-exports.listNotifications = async (req, res) => {
+exports.getNotifications = async (req, res) => {
   try {
-    const page = Math.max(parseInt(req.query.page) || 1, 1);
-    const limit = Math.min(Math.max(parseInt(req.query.limit) || 20, 1), 100);
-    const unreadOnly = (req.query.unreadOnly || '').toString() === 'true';
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const unreadOnly = req.query.unreadOnly === 'true';
+
     const filter = { recipient: req.user._id };
     if (unreadOnly) filter.isRead = false;
 
-    const [items, total, unreadCount] = await Promise.all([
-      Notification.find(filter).sort({ createdAt: -1 }).limit(limit).skip((page - 1) * limit),
-      Notification.countDocuments(filter),
-      Notification.countDocuments({ recipient: req.user._id, isRead: false })
-    ]);
+    const notifications = await Notification.find(filter)
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .lean();
+
+    const unreadCount = await Notification.countDocuments({
+      recipient: req.user._id,
+      isRead: false
+    });
 
     res.json({
       success: true,
-      data: items,
+      data: notifications,
       unreadCount,
       pagination: {
         page,
         limit,
-        total,
-        totalPages: Math.ceil(total / limit)
+        total: await Notification.countDocuments(filter)
       }
     });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+  } catch (error) {
+    console.error('GET notifications error:', error.message);
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-exports.unreadCount = async (req, res) => {
+exports.getUnreadCount = async (req, res) => {
   try {
-    const count = await Notification.countDocuments({ recipient: req.user._id, isRead: false });
+    const count = await Notification.countDocuments({
+      recipient: req.user._id,
+      isRead: false
+    });
     res.json({ success: true, count });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+  } catch (error) {
+    console.error('GET unread count error:', error.message);
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-exports.markRead = async (req, res) => {
+exports.markAsRead = async (req, res) => {
   try {
-    const notification = await Notification.findOne({ _id: req.params.id, recipient: req.user._id });
-    if (!notification) return res.status(404).json({ success: false, message: 'Notification not found' });
-    if (!notification.isRead) {
-      notification.isRead = true;
-      notification.readAt = new Date();
-      await notification.save();
+    const notification = await Notification.findOneAndUpdate(
+      { _id: req.params.id, recipient: req.user._id },
+      { isRead: true, readAt: new Date() },
+      { returnDocument: 'after' }
+    );
+    if (!notification) {
+      return res.status(404).json({
+        success: false, message: 'Notification not found'
+      });
     }
     res.json({ success: true, data: notification });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-exports.markAllRead = async (req, res) => {
+exports.markAllAsRead = async (req, res) => {
   try {
     const result = await Notification.updateMany(
       { recipient: req.user._id, isRead: false },
-      { $set: { isRead: true, readAt: new Date() } }
+      { isRead: true, readAt: new Date() }
     );
-    res.json({ success: true, modifiedCount: result.modifiedCount || 0 });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    res.json({ success: true, modifiedCount: result.modifiedCount });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
 exports.deleteNotification = async (req, res) => {
   try {
-    const result = await Notification.deleteOne({ _id: req.params.id, recipient: req.user._id });
-    if (result.deletedCount === 0) {
-      return res.status(404).json({ success: false, message: 'Notification not found' });
-    }
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    await Notification.findOneAndDelete({
+      _id: req.params.id,
+      recipient: req.user._id
+    });
+    res.json({ success: true, message: 'Deleted' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-const PushSubscription = require('../models/PushSubscription');
+exports.getVapidPublicKey = async (req, res) => {
+  try {
+    res.json({ publicKey: process.env.VAPID_PUBLIC_KEY || '' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
 
 exports.subscribeToPush = async (req, res) => {
   try {
-    const { subscription, deviceInfo } = req.body;
-    if (!subscription || !subscription.endpoint || !subscription.keys) {
-      return res.status(400).json({ success: false, message: 'Invalid subscription data' });
+    const { subscription } = req.body;
+    if (!subscription || !subscription.endpoint) {
+      return res.status(400).json({
+        success: false, message: 'Invalid subscription'
+      });
     }
-    const { endpoint, keys } = subscription;
 
-    await PushSubscription.findOneAndUpdate(
-      { user: req.user._id, endpoint },
-      { 
-        user: req.user._id, 
-        endpoint, 
-        keys, 
-        deviceInfo, 
-        isActive: true 
-      },
-      { upsert: true, returnDocument: 'after' }
-    );
+    const existing = await PushSubscription.findOne({
+      user: req.user._id,
+      endpoint: subscription.endpoint
+    });
+
+    if (existing) {
+      existing.isActive = true;
+      await existing.save();
+    } else {
+      await PushSubscription.create({
+        user: req.user._id,
+        endpoint: subscription.endpoint,
+        keys: subscription.keys,
+        isActive: true
+      });
+    }
 
     res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+  } catch (error) {
+    console.error('Push subscribe error:', error.message);
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
 exports.unsubscribeFromPush = async (req, res) => {
   try {
-    const { endpoint } = req.body;
-    if (!endpoint) return res.status(400).json({ success: false, message: 'Endpoint is required' });
-
     await PushSubscription.findOneAndUpdate(
-      { user: req.user._id, endpoint },
+      { user: req.user._id, endpoint: req.body.endpoint },
       { isActive: false }
     );
-
     res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
-};
-
-exports.getVapidPublicKey = (req, res) => {
-  res.json({ publicKey: process.env.VAPID_PUBLIC_KEY });
 };

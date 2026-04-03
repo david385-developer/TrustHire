@@ -2,26 +2,24 @@ const express = require('express');
 const router = express.Router();
 const auth = require('../middlewares/auth');
 const {
-  listNotifications,
-  unreadCount,
-  markRead,
-  markAllRead,
+  getNotifications,
+  getUnreadCount,
+  markAsRead,
+  markAllAsRead,
   deleteNotification,
   subscribeToPush,
   unsubscribeFromPush,
   getVapidPublicKey
 } = require('../controllers/notificationController');
 
-// In-app notifications
-router.get('/', auth, listNotifications);
-router.get('/unread-count', auth, unreadCount);
-router.put('/:id/read', auth, markRead);
-router.put('/read-all', auth, markAllRead);
+// All notification routes should be protected except getVapidPublicKey which is needed for push registration
+router.get('/', auth, getNotifications);
+router.get('/unread-count', auth, getUnreadCount);
+router.put('/:id/read', auth, markAsRead);
+router.put('/read-all', auth, markAllAsRead);
 router.delete('/:id', auth, deleteNotification);
-
-// Push notifications
-router.get('/vapid-public-key', getVapidPublicKey);
 router.post('/subscribe', auth, subscribeToPush);
 router.post('/unsubscribe', auth, unsubscribeFromPush);
+router.get('/vapid-public-key', getVapidPublicKey);
 
 module.exports = router;

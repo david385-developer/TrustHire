@@ -1,67 +1,57 @@
-// public/sw.js
+/*
+ * Service Worker for TrustHire Push Notifications
+ */
 
+self.addEventListener('push', function(event) {
+  if (event.data) {
+    const data = event.data.json();
+    const options = {
+      body: data.body,
+      icon: '/favicon.ico',
+      badge: '/favicon.ico',
+      data: {
+        url: data.data?.url || '/dashboard'
+      },
+      // Vibrate pattern: 200ms on, 100ms off, 200ms on
+      vibrate: [200, 100, 200]
+    };
+
+    event.waitUntil(
+      self.registration.showNotification(data.title, options)
+    );
+  }
+});
+
+self.addEventListener('notificationclick', function(event) {
+  event.notification.close();
+  
+  const urlToOpen = event.notification.data.url;
+
+  event.waitUntil(
+    clients.matchAll({
+      type: 'window',
+      includeUncontrolled: true
+    }).then(function(windowClients) {
+      // If a window is already open at the target URL, focus it
+      for (var i = 0; i < windowClients.length; i++) {
+        var client = windowClients[i];
+        if (client.url === urlToOpen && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      // If not, open a new window
+      if (clients.openWindow) {
+        return clients.openWindow(urlToOpen);
+      }
+    })
+  );
+});
+
+// Update service worker immediately
 self.addEventListener('install', (event) => {
-  self.skipWaiting();
+  event.waitUntil(self.skipWaiting());
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(self.clients.claim());
-});
-
-self.addEventListener('push', (event) => {
-  if (!event.data) return;
-
-  let data;
-  try {
-    data = event.data.json();
-  } catch (e) {
-    data = { title: 'TrustHire', body: event.data.text() };
-  }
-
-  event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true })
-      .then((clientList) => {
-        const isFocused = clientList.some(
-          client => client.focused &&
-          client.url.includes(self.location.origin)
-        );
-
-        if (isFocused) {
-          // Tab is focused — send message to page
-          clientList.forEach(client => {
-            client.postMessage({
-              type: 'NEW_NOTIFICATION',
-              data: data
-            });
-          });
-        } else {
-          // Tab not focused — show browser notification
-          return self.registration.showNotification(data.title, {
-            body: data.body,
-            icon: '/favicon.ico',
-            badge: '/favicon.ico',
-            data: data.data,
-            tag: 'trusthire-' + Date.now(),
-            requireInteraction: false
-          });
-        }
-      })
-  );
-});
-
-self.addEventListener('notificationclick', (event) => {
-  event.notification.close();
-  const url = event.notification.data?.url || '/dashboard';
-  event.waitUntil(
-    self.clients.matchAll({ type: 'window' }).then((clientList) => {
-      for (const client of clientList) {
-        if (client.url.includes(self.location.origin) &&
-            'focus' in client) {
-          client.navigate(url);
-          return client.focus();
-        }
-      }
-      return self.clients.openWindow(url);
-    })
-  );
 });

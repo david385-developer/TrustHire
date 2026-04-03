@@ -59,21 +59,22 @@ const PORT = process.env.PORT || 5000;
 // Connect DB and Start Server
 connectDB().then(async () => {
   // Diagnostic checks
-  console.log('--- SYSTEM CHECK ---');
-  console.log('EMAIL_USER:', process.env.EMAIL_USER ? 'SET' : 'MISSING');
-  console.log('EMAIL_PASS:', process.env.EMAIL_PASS ? 'SET' : 'MISSING');
+  console.log('--- STARTUP CHECK ---');
+  console.log('PORT:', process.env.PORT || 5000);
   console.log('MONGO_URI:', process.env.MONGO_URI ? 'SET' : 'MISSING');
   console.log('JWT_SECRET:', process.env.JWT_SECRET ? 'SET' : 'MISSING');
+  console.log('EMAIL_USER:', process.env.EMAIL_USER ? 'SET' : 'MISSING');
+  console.log('EMAIL_PASS:', process.env.EMAIL_PASS ? 'SET' : 'MISSING');
   console.log('CLIENT_URL:', process.env.CLIENT_URL || 'MISSING');
   console.log('RAZORPAY_KEY:', process.env.RAZORPAY_KEY_ID ? 'SET' : 'MISSING');
-  console.log('VAPID_KEY:', process.env.VAPID_PUBLIC_KEY ? 'SET' : 'MISSING');
   console.log('--- END CHECK ---');
 
   // Verify email transporter
   try {
+    const { verifyEmail } = require('./services/emailService');
     await verifyEmail();
   } catch (err) {
-    console.error('EMAIL: Could not verify transporter:', err.message);
+    console.error('EMAIL: verifyEmail Error:', err.message);
   }
 
   // Start Cron job
