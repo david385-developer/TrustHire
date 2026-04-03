@@ -1,8 +1,8 @@
 const Application = require('../models/Application');
 const Transaction = require('../models/Transaction');
 const crypto = require('crypto');
-const emailService = require('../services/emailService');
-const notifications = require('../services/notificationService');
+const { sendFeeConfirmed } = require('../services/emailService');
+const { notifyPriorityApplication } = require('../services/notificationService');
 
 exports.verifyPayment = async (req, res) => {
   try {
@@ -23,24 +23,32 @@ exports.verifyPayment = async (req, res) => {
       application.paymentId = razorpay_payment_id;
       await application.save();
 
+      const candidate = application.candidate;
+      const job = application.job;
+
       await Transaction.create({
         application: application._id,
-        candidate: application.candidate._id,
+        candidate: candidate._id,
         type: 'payment',
         razorpayPaymentId: razorpay_payment_id,
         amount: application.feeAmount,
         status: 'success'
       });
 
-      emailService.sendFeeConfirmed(application.candidate.email, application.feeAmount);
-      // Recruiter gets a priority application notification (and email)
-      notifications.notifyPriorityApplication(
-        application.job.postedBy,
-        application.candidate.name || 'Candidate',
-        application.job.title,
-        application.feeAmount,
-        { jobId: application.job._id, applicationId: application._id }
-      ).catch(console.error);
+      // Email for candidate
+      try {
+        await sendFeeConfirmed(candidate.email, application.feeAmount);
+      } catch (e) { console.error('EMAIL FAIL:', e.message); }
+      
+      // Notification for recruiter (Priority application)
+      try {
+        await notifyPriorityApplication(
+          job.postedBy,
+          candidate.name || 'Candidate',
+          job.title,
+          application.feeAmount
+        );
+      } catch (e) { console.error('NOTIFY FAIL:', e.message); }
 
       return res.json({ success: true, message: 'Payment verified successfully', data: application });
     } else {

@@ -4,11 +4,9 @@ const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
 const connectDB = require('./config/db');
+const { verifyEmail } = require('./services/emailService');
 
 const app = express();
-
-// Connect to database FIRST
-connectDB();
 
 // Middleware
 const allowedOrigins = new Set(
@@ -23,19 +21,12 @@ const allowedOrigins = new Set(
 
 app.use(cors({
   origin(origin, callback) {
-    // 1. Allow mobile apps or curl (no origin)
     if (!origin) return callback(null, true);
-
-    // 2. Allow specific localhost ports (Dev)
     const isAllowedDevOrigin = /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin);
-    
-    // 3. Allow Vercel deployments (Production/Preview)
     const isVercelOrigin = origin.endsWith('.vercel.app');
-
     if (allowedOrigins.has(origin) || isAllowedDevOrigin || isVercelOrigin) {
       return callback(null, true);
     }
-
     console.error(`[CORS] Rejected Origin: ${origin}`);
     return callback(new Error(`CORS blocked for origin: ${origin}`));
   },
@@ -43,8 +34,6 @@ app.use(cors({
 }));
 
 app.use(express.json({ extended: false }));
-
-// static uploads
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Health check
@@ -67,8 +56,34 @@ app.use('/api/notifications', require('./routes/notificationRoutes'));
 
 const PORT = process.env.PORT || 5000;
 
-// Start Cron job if needed
-const { startCronJob } = require('./services/cronService');
-startCronJob();
+// Connect DB and Start Server
+connectDB().then(async () => {
+  // Diagnostic checks
+  console.log('--- SYSTEM CHECK ---');
+  console.log('EMAIL_USER:', process.env.EMAIL_USER ? 'SET' : 'MISSING');
+  console.log('EMAIL_PASS:', process.env.EMAIL_PASS ? 'SET' : 'MISSING');
+  console.log('MONGO_URI:', process.env.MONGO_URI ? 'SET' : 'MISSING');
+  console.log('JWT_SECRET:', process.env.JWT_SECRET ? 'SET' : 'MISSING');
+  console.log('CLIENT_URL:', process.env.CLIENT_URL || 'MISSING');
+  console.log('RAZORPAY_KEY:', process.env.RAZORPAY_KEY_ID ? 'SET' : 'MISSING');
+  console.log('VAPID_KEY:', process.env.VAPID_PUBLIC_KEY ? 'SET' : 'MISSING');
+  console.log('--- END CHECK ---');
 
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+  // Verify email transporter
+  try {
+    await verifyEmail();
+  } catch (err) {
+    console.error('EMAIL: Could not verify transporter:', err.message);
+  }
+
+  // Start Cron job
+  const { startCronJob } = require('./services/cronService');
+  startCronJob();
+
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+}).catch(err => {
+  console.error('SERVER START FAILED:', err.message);
+  process.exit(1);
+});

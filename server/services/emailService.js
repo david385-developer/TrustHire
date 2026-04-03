@@ -6,20 +6,28 @@ const BRAND_ACCENT = '#D4A843';
 
 const transporter = nodemailer.createTransport({
   host: 'smtp.gmail.com',
-  port: 465,
-  secure: true, // Use SSL/TLS
+  port: 587,
+  secure: false,
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS
   },
-  connectionTimeout: 10000, // 10 seconds
-  greetingTimeout: 10000,
-  socketTimeout: 15000,
   tls: {
-    // Do not fail on invalid certs - helpful for some cloud environments
-    rejectUnauthorized: false 
+    rejectUnauthorized: false
   }
 });
+
+// Verify on startup
+const verifyEmail = async () => {
+  try {
+    await transporter.verify();
+    console.log('EMAIL: Transporter verified successfully');
+    return true;
+  } catch (error) {
+    console.error('EMAIL: Transporter FAILED:', error.message);
+    return false;
+  }
+};
 
 const generateHtmlTemplate = (title, contentLines) => `
   <div style="font-family: 'Arial', sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #E5E7EB; border-radius: 8px; overflow: hidden;">
@@ -46,18 +54,21 @@ const generateHtmlTemplate = (title, contentLines) => `
 const sendEmail = async (to, subject, title, bodyLines) => {
   if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
     console.warn(`[Mock Email] To: ${to} | Subject: ${subject}`);
-    return;
+    return false;
   }
   
   try {
-    await transporter.sendMail({
+    const info = await transporter.sendMail({
       from: `"TrustHire" <${process.env.EMAIL_USER}>`,
       to,
       subject,
       html: generateHtmlTemplate(title, bodyLines)
     });
+    console.log(`EMAIL: ${title} sent to ${to}, messageId: ${info.messageId}`);
+    return true;
   } catch (error) {
-    console.error('Failed to send email:', error);
+    console.error(`EMAIL: Failed to send ${title} to ${to}:`, error.message);
+    return false;
   }
 };
 
@@ -67,7 +78,7 @@ const sendEmail = async (to, subject, title, bodyLines) => {
 const sendOTPEmail = async (email, name, otp) => {
   if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
     console.warn(`[Mock OTP Email] To: ${email} | OTP: ${otp}`);
-    return;
+    return false;
   }
 
   const html = `
@@ -116,18 +127,23 @@ const sendOTPEmail = async (email, name, otp) => {
   `;
 
   try {
-    await transporter.sendMail({
+    const info = await transporter.sendMail({
       from: `"TrustHire" <${process.env.EMAIL_USER}>`,
       to: email,
       subject: 'TrustHire — Verify Your Email',
       html
     });
+    console.log(`EMAIL: OTP sent to ${email}, messageId: ${info.messageId}`);
+    return true;
   } catch (error) {
-    console.error('Failed to send OTP email:', error);
+    console.error(`EMAIL: Failed to send OTP email to ${email}:`, error.message);
+    return false;
   }
 };
 
 module.exports = {
+  transporter,
+  verifyEmail,
   sendOTPEmail,
   sendApplicationReceived: (email, jobTitle) => 
     sendEmail(email, `Application Confirmed — ${jobTitle}`, "Application Received", [
@@ -142,26 +158,33 @@ module.exports = {
       "<strong>Refund Policy Reminder:</strong> Your fee is automatically refunded if you are rejected, if not reviewed within the job's timeframe, or if you are hired and join. It is only forfeited if you skip a scheduled interview."
     ]),
     
-  sendInterviewScheduled: (email, jobTitle, details) =>
+  sendInterviewScheduledEmail: (email, name, jobTitle, interviewDate, mode, link, company) =>
     sendEmail(email, `Interview Scheduled — ${jobTitle}`, "Interview Scheduled", [
-      `Great news! An interview has been scheduled for the <strong>${jobTitle}</strong> position.`,
-      `<strong>Date:</strong> ${new Date(details.scheduledAt).toLocaleString()}`,
-      `<strong>Mode:</strong> ${details.mode.toUpperCase()}`,
-      details.link ? `<strong>Link:</strong> <a href="${details.link}">${details.link}</a>` : '',
-      details.notes ? `<strong>Notes:</strong> ${details.notes}` : '',
+      `Hi <strong>${name}</strong>, great news! An interview has been scheduled for the <strong>${jobTitle}</strong> position at <strong>${company}</strong>.`,
+      `<strong>Date:</strong> ${new Date(interviewDate).toLocaleString()}`,
+      `<strong>Mode:</strong> ${mode.toUpperCase()}`,
+      link ? `<strong>Link:</strong> <a href="${link}">${link}</a>` : '',
       "<strong>Important:</strong> If you paid a Challenge Fee, it will be forfeited if you do not attend this interview."
     ].filter(Boolean)),
+
+  sendShortlistedEmail: (email, name, jobTitle, company, dashboardLink) =>
+    sendEmail(email, `Great News, ${name}! You've Been Shortlisted for ${jobTitle}`, "Application Shortlisted", [
+      `Congratulations <strong>${name}</strong>! You have been shortlisted for the <strong>${jobTitle}</strong> position at <strong>${company}</strong>.`,
+      `You can view more details on your <a href="${dashboardLink}">Candidate Dashboard</a>.`,
+      "The employer will contact you for the next steps."
+    ]),
     
-  sendApplicationRejected: (email, jobTitle, feeRefunded) =>
-    sendEmail(email, `Update on your application — ${jobTitle}`, "Application Status Update", [
-      `Thank you for applying to the <strong>${jobTitle}</strong> position.`,
+  sendRejectedEmail: (email, name, jobTitle, company, feeAmount, refundId, jobsLink) =>
+    sendEmail(email, `Update on Your Application for ${jobTitle} at ${company}`, "Application Status Update", [
+      `Hi <strong>${name}</strong>, thank you for applying to the <strong>${jobTitle}</strong> position at <strong>${company}</strong>.`,
       "Unfortunately, the employer has decided to move forward with other candidates at this time.",
-      feeRefunded ? "<strong>Fee Refund:</strong> Since your application was rejected, your Challenge Fee is being refunded to your original payment method automatically." : ''
+      feeAmount > 0 ? `<strong>Fee Refund:</strong> Since your application was rejected, your Challenge Fee of ₹${feeAmount} is being refunded (Refund ID: ${refundId}).` : '',
+      `Feel free to check out other <a href="${jobsLink}">open positions</a> on our platform.`
     ].filter(Boolean)),
     
-  sendFeeRefunded: (email, amount, reason) =>
+  sendRefundEmail: (email, name, amount, reason) =>
     sendEmail(email, `Challenge Fee Refunded — ₹${amount}`, "Fee Refund Processing", [
-      `Your Challenge Fee of ₹${amount} is being refunded.`,
+      `Hi <strong>${name}</strong>, your Challenge Fee of ₹${amount} is being refunded.`,
       `<strong>Reason:</strong> ${reason}`,
       "Please allow 5-7 business days for the amount to reflect in your original payment method."
     ]),
@@ -172,12 +195,11 @@ module.exports = {
       "Because you were marked as a no-show for your scheduled interview, your Challenge Fee has been forfeited as per the platform policy."
     ]),
     
-  sendApplicationHired: (email, jobTitle, feeRefunded) =>
-    sendEmail(email, `Congratulations! You've been hired — ${jobTitle}`, "You're Hired!", [
-      `Congratulations! You have been marked as hired for the <strong>${jobTitle}</strong> position!`,
-      "The employer will contact you directly with further onboarding details.",
-      feeRefunded ? "<strong>Fee Refund:</strong> Since you have successfully secured the position, your Challenge Fee is being refunded to your original payment method." : ''
-    ].filter(Boolean)),
+  sendHiredEmail: (email, name, jobTitle, company) =>
+    sendEmail(email, `Congratulations! You've Been Hired — ${jobTitle}`, "You're Hired!", [
+      `Congratulations <strong>${name}</strong>! You have been marked as hired for the <strong>${jobTitle}</strong> position at <strong>${company}</strong>!`,
+      "The employer will contact you directly with further onboarding details. Best of luck on your new journey!"
+    ]),
 
   sendInterviewReminder: (email, jobTitle, interviewDate) =>
     sendEmail(email, `Reminder: Interview Tomorrow — ${jobTitle}`, "Interview Reminder", [

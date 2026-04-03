@@ -2,9 +2,27 @@ const Application = require('../models/Application');
 const Job = require('../models/Job');
 const Transaction = require('../models/Transaction');
 const { processRefund, processForfeit } = require('../services/refundService');
-const emailService = require('../services/emailService');
+const { 
+  sendApplicationReceived, 
+  sendInterviewScheduledEmail, 
+  sendShortlistedEmail, 
+  sendRejectedEmail, 
+  sendRefundEmail, 
+  sendHiredEmail,
+  sendFeeConfirmed,
+  sendFeeForfeited
+} = require('../services/emailService');
 const razorpay = require('../config/razorpay');
-const notifications = require('../services/notificationService');
+const {
+  notifyApplicationSubmitted,
+  notifyNewApplication,
+  notifyInterviewScheduled,
+  notifyPriorityApplication,
+  notifyRejected,
+  notifyHired,
+  notifyFeeRefunded,
+  notifyFeeForfeited
+} = require('../services/notificationService');
 
 const VALID_STATUS_UPDATES = ['under_review', 'shortlisted', 'rejected', 'hired', 'joined'];
 
@@ -73,9 +91,19 @@ exports.applyToJob = async (req, res) => {
     // Free application
     await application.save();
     
-    // Notifications
-    notifications.notifyApplicationSubmitted(req.user.id, job.title, job.company, { jobId: job._id, applicationId: application._id }).catch(console.error);
-    notifications.notifyNewApplication(job.postedBy, req.user.name || 'Candidate', job.title, { jobId: job._id, applicationId: application._id }).catch(console.error);
+    // Notifications for candidate
+    try {
+      await notifyApplicationSubmitted(req.user.id, job.title, job.company);
+    } catch (e) { console.error('NOTIFY FAIL:', e.message); }
+    
+    try {
+      await sendApplicationReceived(req.user.email, job.title);
+    } catch (e) { console.error('EMAIL FAIL:', e.message); }
+
+    // Notifications for recruiter
+    try {
+      await notifyNewApplication(job.postedBy, req.user.name || 'Candidate', job.title);
+    } catch (e) { console.error('NOTIFY FAIL:', e.message); }
 
     res.status(201).json({ success: true, data: application });
   } catch (error) {
@@ -220,35 +248,57 @@ exports.updateApplicationStatus = async (req, res) => {
     application.status = status;
     await application.save();
 
-    // Side effects
+    const candidate = application.candidate;
+    const job = application.job;
+
+    // Side effects with try-catch
     if (status === 'rejected' && oldStatus !== 'rejected') {
+      let feeRefunded = false;
       if (application.feePaid && !application.refundId && application.status !== 'fee_refunded') {
         const result = await processRefund(application, 'rejected');
         if (result.success) {
-          // Status already updated in processRefund
+          feeRefunded = true;
+          try { await notifyFeeRefunded(candidate._id, application.feeAmount, 'Rejected', job.title); } catch (e) {}
+          try { await sendRefundEmail(candidate.email, candidate.name, application.feeAmount, 'application rejected'); } catch (e) {}
         }
       }
-      emailService.sendApplicationRejected(application.candidate.email, application.job.title, application.feePaid);
-      notifications.notifyRejected(application.candidate._id, application.job.title, application.job.company, application.feePaid, { jobId: application.job._id, applicationId: application._id }).catch(console.error);
+      try { 
+        await notifyRejected(candidate._id, job.title, job.company, feeRefunded);
+      } catch (e) { console.error('NOTIFY FAIL:', e.message); }
+      
+      try {
+        await sendRejectedEmail(candidate.email, candidate.name, job.title, job.company, application.feeAmount, application.refundId, process.env.CLIENT_URL + '/jobs');
+      } catch (e) { console.error('EMAIL FAIL:', e.message); }
     } 
     else if (status === 'joined' && oldStatus !== 'joined') {
       if (application.feePaid && !application.refundId && application.status !== 'fee_refunded') {
         const result = await processRefund(application, 'joined');
         if (result.success) {
-          // Status already updated in processRefund
+          try { await notifyFeeRefunded(candidate._id, application.feeAmount, 'Hired & Joined', job.title); } catch (e) {}
+          try { await sendRefundEmail(candidate.email, candidate.name, application.feeAmount, 'joining confirmation'); } catch (e) {}
         }
       }
-      emailService.sendApplicationHired(application.candidate.email, application.job.title, application.feePaid);
-      notifications.notifyStatusUpdated(application.candidate._id, application.job.title, 'Joined', application.job.company, { jobId: application.job._id, applicationId: application._id }).catch(console.error);
+      try { 
+        await notifyHired(candidate._id, job.title, job.company);
+      } catch (e) { console.error('NOTIFY FAIL:', e.message); }
+      
+      try {
+        await sendHiredEmail(candidate.email, candidate.name, job.title, job.company);
+      } catch (e) { console.error('EMAIL FAIL:', e.message); }
     }
     else if (status === 'hired' && oldStatus !== 'hired') {
-      emailService.sendApplicationHired(application.candidate.email, application.job.title, false);
-      notifications.notifyHired(application.candidate._id, application.job.title, application.job.company, { jobId: application.job._id, applicationId: application._id }).catch(console.error);
+      try { 
+        await notifyHired(candidate._id, job.title, job.company);
+      } catch (e) { console.error('NOTIFY FAIL:', e.message); }
+      
+      try {
+        await sendHiredEmail(candidate.email, candidate.name, job.title, job.company);
+      } catch (e) { console.error('EMAIL FAIL:', e.message); }
     }
     else if (status === 'shortlisted' && oldStatus !== 'shortlisted') {
-      notifications.notifyStatusUpdated(application.candidate._id, application.job.title, 'Shortlisted', application.job.company, { jobId: application.job._id, applicationId: application._id }).catch(console.error);
-    } else if (status === 'under_review' && oldStatus !== 'under_review') {
-      notifications.notifyStatusUpdated(application.candidate._id, application.job.title, 'Under Review', application.job.company, { jobId: application.job._id, applicationId: application._id }).catch(console.error);
+      try {
+        await sendShortlistedEmail(candidate.email, candidate.name, job.title, job.company, process.env.CLIENT_URL + '/dashboard/applications');
+      } catch (e) { console.error('EMAIL FAIL:', e.message); }
     }
 
     res.json({ success: true, data: application });
@@ -284,15 +334,16 @@ exports.updateInterview = async (req, res) => {
     application.interview = { scheduledAt, mode: normalizedMode, link, notes };
     await application.save();
 
-    emailService.sendInterviewScheduled(application.candidate.email, application.job.title, application.interview);
-    notifications.notifyInterviewScheduled(
-      application.candidate._id,
-      application.job.title,
-      scheduledAt,
-      mode,
-      application.job.company,
-      { jobId: application.job._id, applicationId: application._id, meetingLink: link, notes }
-    ).catch(console.error);
+    const candidate = application.candidate;
+    const job = application.job;
+
+    try {
+      await notifyInterviewScheduled(candidate._id, job.title, scheduledAt, mode, job.company);
+    } catch (e) { console.error('NOTIFY FAIL:', e.message); }
+    
+    try {
+      await sendInterviewScheduledEmail(candidate.email, candidate.name, job.title, scheduledAt, mode, link, job.company);
+    } catch (e) { console.error('EMAIL FAIL:', e.message); }
 
     res.json({ success: true, data: application });
   } catch (error) {
@@ -322,13 +373,17 @@ exports.updateAttendance = async (req, res) => {
       await processForfeit(application);
       application.status = 'interview_no_show';
       await application.save();
-      emailService.sendFeeForfeited(application.candidate.email, application.job.title);
-      notifications.notifyFeeForfeited(application.candidate._id, application.feeAmount, application.job.title, application.job.company, { jobId: application.job._id, applicationId: application._id }).catch(console.error);
-      notifications.notifyInterviewNoShow(application.job.postedBy, application.candidate.name || 'Candidate', application.job.title, { jobId: application.job._id, applicationId: application._id }).catch(console.error);
+      
+      try {
+        await notifyFeeForfeited(application.candidate._id, application.feeAmount, application.job.title, application.job.company);
+      } catch (e) { console.error('NOTIFY FAIL:', e.message); }
+      
+      try {
+        await sendFeeForfeited(application.candidate.email, application.job.title);
+      } catch (e) { console.error('EMAIL FAIL:', e.message); }
     } else {
       application.status = 'interview_completed';
       await application.save();
-      notifications.notifyStatusUpdated(application.candidate._id, application.job.title, 'Interview Completed', application.job.company, { jobId: application.job._id, applicationId: application._id }).catch(console.error);
     }
 
     res.json({ success: true, data: application });
