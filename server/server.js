@@ -23,11 +23,20 @@ const allowedOrigins = new Set(
 
 app.use(cors({
   origin(origin, callback) {
+    // 1. Allow mobile apps or curl (no origin)
     if (!origin) return callback(null, true);
+
+    // 2. Allow specific localhost ports (Dev)
     const isAllowedDevOrigin = /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin);
-    if (allowedOrigins.has(origin) || isAllowedDevOrigin) {
+    
+    // 3. Allow Vercel deployments (Production/Preview)
+    const isVercelOrigin = origin.endsWith('.vercel.app');
+
+    if (allowedOrigins.has(origin) || isAllowedDevOrigin || isVercelOrigin) {
       return callback(null, true);
     }
+
+    console.error(`[CORS] Rejected Origin: ${origin}`);
     return callback(new Error(`CORS blocked for origin: ${origin}`));
   },
   credentials: true
