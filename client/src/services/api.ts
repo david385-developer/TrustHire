@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
+  baseURL: import.meta.env.VITE_API_URL || 'https://trusthire.onrender.com/api',
   headers: { 'Content-Type': 'application/json' }
 });
 
@@ -27,7 +27,7 @@ api.interceptors.response.use(
 export const buildAssetUrl = (path?: string | null) => {
   if (!path) return '';
   if (path.startsWith('http://') || path.startsWith('https://')) return path;
-  const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+  const baseUrl = import.meta.env.VITE_API_URL || 'https://trusthire.onrender.com/api';
   const baseOrigin = new URL(baseUrl).origin;
   return `${baseOrigin}${path.startsWith('/') ? path : `/${path}`}`;
 };
