@@ -5,10 +5,19 @@ const BRAND_COLOR = '#1B4D3E';
 const BRAND_ACCENT = '#D4A843';
 
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  host: 'smtp.gmail.com',
+  port: 465,
+  secure: true, // Use SSL/TLS
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS
+  },
+  connectionTimeout: 10000, // 10 seconds
+  greetingTimeout: 10000,
+  socketTimeout: 15000,
+  tls: {
+    // Do not fail on invalid certs - helpful for some cloud environments
+    rejectUnauthorized: false 
   }
 });
 
