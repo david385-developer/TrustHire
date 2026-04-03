@@ -28,7 +28,7 @@ exports.register = async (req, res) => {
     if (!ensureDatabaseReady(res)) return;
 
     const { 
-      name, email, password, role, 
+      name, email, password, role, gender,
       company, dateOfBirth, qualification, stream, graduationStatus, passedOutYear 
     } = req.body;
 
@@ -47,6 +47,7 @@ exports.register = async (req, res) => {
       email,
       password: hashedPassword,
       role,
+      gender,
       company,
       dateOfBirth,
       qualification,

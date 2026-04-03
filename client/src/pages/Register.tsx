@@ -16,12 +16,14 @@ type FieldErrors = {
   confirmPassword?: string; terms?: string;
   company?: string; dateOfBirth?: string; qualification?: string;
   stream?: string; graduationStatus?: string; passedOutYear?: string;
+  gender?: string;
 };
 type Touched = {
   name?: boolean; email?: boolean; password?: boolean;
   confirmPassword?: boolean; terms?: boolean;
   company?: boolean; dateOfBirth?: boolean; qualification?: boolean;
   stream?: boolean; graduationStatus?: boolean; passedOutYear?: boolean;
+  gender?: boolean;
 };
 
 // ─── Validators ──────────────────────────────────────────────────────────────
@@ -68,6 +70,7 @@ const Register: React.FC = () => {
   const [isLoading, setIsLoading]     = useState(false);
   const [company, setCompany]         = useState('');
   const [dateOfBirth, setDob]         = useState('');
+  const [gender, setGender]           = useState('');
   const [qualification, setQual]      = useState('');
   const [stream, setStream]           = useState('');
   const [graduationStatus, setGrad]   = useState('');
@@ -85,6 +88,7 @@ const Register: React.FC = () => {
     confirmPassword: validateConfirm(confirmPassword, password),
     company:         validateCompany(company, selectedRole),
     dateOfBirth:     validateDOB(dateOfBirth, selectedRole),
+    gender:          selectedRole === 'candidate' && !gender ? 'Gender is required' : undefined,
     qualification:   validateSelect(qualification, selectedRole, 'Qualification'),
     stream:          validateSelect(stream, selectedRole, 'Stream'),
     graduationStatus: validateSelect(graduationStatus, selectedRole, 'Graduation Status'),
@@ -102,7 +106,7 @@ const Register: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const allTouched: Touched = { name: true, email: true, password: true, confirmPassword: true, terms: true, company: true, dateOfBirth: true, qualification: true, stream: true, graduationStatus: true, passedOutYear: true };
+    const allTouched: Touched = { name: true, email: true, password: true, confirmPassword: true, terms: true, company: true, dateOfBirth: true, qualification: true, stream: true, graduationStatus: true, passedOutYear: true, gender: true };
     setTouched(allTouched);
     const errs = validate();
     setFieldErrors(errs);
@@ -112,7 +116,7 @@ const Register: React.FC = () => {
     try {
       await api.post('/auth/register', { 
         name, email, password, role: selectedRole,
-        company, dateOfBirth, qualification, stream, graduationStatus, passedOutYear
+        company, dateOfBirth, gender, qualification, stream, graduationStatus, passedOutYear
       });
       toast.success('Account created! Check your email for a verification code.');
       navigate('/verify-otp', { state: { email, name } });
@@ -244,6 +248,28 @@ const Register: React.FC = () => {
                     />
                   </div>
                   <div className="space-y-2">
+                    <label className="flex items-center gap-2 text-sm font-bold text-slate-700"><User className="w-4 h-4 text-emerald-500" /> Gender</label>
+                    <div className="flex gap-4 p-3 bg-slate-50 border border-slate-100 rounded-2xl">
+                      {['Male', 'Female'].map(g => (
+                        <label key={g} className="flex items-center gap-2 cursor-pointer group">
+                          <input
+                            type="radio" name="gender" value={g} checked={gender === g}
+                            onChange={() => setGender(g)} disabled={isLoading}
+                            className="hidden peer"
+                          />
+                          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${gender === g ? 'border-emerald-600 bg-emerald-100' : 'border-slate-300 group-hover:border-emerald-300'}`}>
+                            {gender === g && <div className="w-2.5 h-2.5 rounded-full bg-emerald-600 animate-scale" />}
+                          </div>
+                          <span className={`text-sm font-bold transition-colors ${gender === g ? 'text-emerald-900' : 'text-slate-600'}`}>{g}</span>
+                        </label>
+                      ))}
+                    </div>
+                    {showError('gender') && <p className="text-red-500 text-[10px] font-bold uppercase">{showError('gender')}</p>}
+                  </div>
+                </div>
+
+                <div className="grid sm:grid-cols-2 gap-6">
+                  <div className="space-y-2">
                     <label className="flex items-center gap-2 text-sm font-bold text-slate-700"><GraduationCap className="w-4 h-4 text-emerald-500" /> Qualification</label>
                     <select
                       value={qualification} disabled={isLoading}
@@ -254,9 +280,6 @@ const Register: React.FC = () => {
                       {["Diploma", "Bachelor's", "Master's", "PhD"].map(q => <option key={q} value={q}>{q}</option>)}
                     </select>
                   </div>
-                </div>
-
-                <div className="grid sm:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="flex items-center gap-2 text-sm font-bold text-slate-700"><Zap className="w-4 h-4 text-emerald-500" /> Stream</label>
                     <input
@@ -265,6 +288,9 @@ const Register: React.FC = () => {
                       className={`w-full px-5 py-3.5 bg-slate-50 border rounded-2xl outline-none transition-all ${showError('stream') ? 'border-red-500' : 'border-slate-100 focus:border-emerald-500'}`}
                     />
                   </div>
+                </div>
+
+                <div className="grid sm:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="flex items-center gap-2 text-sm font-bold text-slate-700"><CheckCircle className="w-4 h-4 text-emerald-500" /> Status</label>
                     <select
@@ -276,16 +302,14 @@ const Register: React.FC = () => {
                       {["Graduated", "Currently Studying"].map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                   </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="flex items-center gap-2 text-sm font-bold text-slate-700"><Calendar className="w-4 h-4 text-emerald-500" /> Passing Year / Expected Graduation</label>
-                  <input
-                    type="number" placeholder="e.g. 2024" value={passedOutYear} disabled={isLoading}
-                    onChange={e => setYear(e.target.value)} onBlur={() => handleBlur('passedOutYear')}
-                    className={`w-full px-5 py-3.5 bg-slate-50 border rounded-2xl outline-none transition-all ${showError('passedOutYear') ? 'border-red-500' : 'border-slate-100 focus:border-emerald-500'}`}
-                  />
-                  {showError('passedOutYear') && <p className="text-[10px] text-red-500 font-bold uppercase tracking-wider">{showError('passedOutYear')}</p>}
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-2 text-sm font-bold text-slate-700"><Calendar className="w-4 h-4 text-emerald-500" /> Passing Year</label>
+                    <input
+                      type="number" placeholder="e.g. 2024" value={passedOutYear} disabled={isLoading}
+                      onChange={e => setYear(e.target.value)} onBlur={() => handleBlur('passedOutYear')}
+                      className={`w-full px-5 py-3.5 bg-slate-50 border rounded-2xl outline-none transition-all ${showError('passedOutYear') ? 'border-red-500' : 'border-slate-100 focus:border-emerald-500'}`}
+                    />
+                  </div>
                 </div>
               </>
             )}
