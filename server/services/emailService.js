@@ -6,8 +6,8 @@ const BRAND_ACCENT = '#D4A843';
 
 const transporter = nodemailer.createTransport({
   host: 'smtp.gmail.com',
-  port: 587,
-  secure: false,
+  port: 465,
+  secure: true, // Use SMTPS for better reliability in cloud environments
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS
