@@ -6,15 +6,21 @@ const BRAND_ACCENT = '#D4A843';
 
 const transporter = nodemailer.createTransport({
   host: 'smtp.gmail.com',
-  port: 465,
-  secure: true, // Use SMTPS for better reliability in cloud environments
+  port: 587,
+  secure: false, // Use STARTTLS
+  requireTLS: true,
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS
   },
   tls: {
-    rejectUnauthorized: false
-  }
+    // Explicitly reject unauthorized to be secure, but allow self-signed if needed
+    rejectUnauthorized: false,
+    // Helping with IPv6 issues on some networks
+    minVersion: 'TLSv1.2'
+  },
+  debug: true, // Show debug output
+  logger: true // Log information to console
 });
 
 // Verify on startup
