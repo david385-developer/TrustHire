@@ -1,20 +1,22 @@
 const nodemailer = require('nodemailer');
 
 const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 465,
-  secure: true,
+  host: process.env.MAILTRAP_HOST || 'sandbox.smtp.mailtrap.io',
+  port: parseInt(process.env.MAILTRAP_PORT) || 2525,
   auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
-  },
-  family: 4
+    user: process.env.MAILTRAP_USER,
+    pass: process.env.MAILTRAP_PASS
+  }
 });
 
 const verifyEmail = async () => {
   try {
+    if (!process.env.MAILTRAP_USER || !process.env.MAILTRAP_PASS) {
+      console.error('EMAIL: MAILTRAP credentials missing');
+      return false;
+    }
     await transporter.verify();
-    console.log('EMAIL: Transporter verified successfully');
+    console.log('EMAIL: Mailtrap transporter verified');
     return true;
   } catch (error) {
     console.error('EMAIL: Transporter FAILED:', error.message);
@@ -25,7 +27,7 @@ const verifyEmail = async () => {
 const sendMail = async (to, subject, html) => {
   try {
     const info = await transporter.sendMail({
-      from: `"TrustHire" <${process.env.EMAIL_USER}>`,
+      from: '"TrustHire" <noreply@trusthire.in>',
       to,
       subject,
       html
