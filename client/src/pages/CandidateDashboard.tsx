@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { 
-  ArrowRight, Briefcase, Clock, 
+  Briefcase, Clock, 
   IndianRupee, 
   Zap, MapPin, ExternalLink, Calendar
 } from 'lucide-react';
@@ -29,6 +29,7 @@ interface Application {
 
 const CandidateDashboard: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -145,9 +146,12 @@ const CandidateDashboard: React.FC = () => {
                       <Badge variant={getStatusVariant(app.status)} className="capitalize px-2 py-0.5 rounded font-bold text-[9px] tracking-wider">
                         {app.status.replace(/_/g, ' ')}
                       </Badge>
-                      <Link to={`/dashboard/applications/${app._id}`} className="w-8 h-8 flex items-center justify-center bg-gray-50 text-gray-400 hover:bg-emerald-600 hover:text-white rounded-lg transition-all">
-                        <ArrowRight className="w-4 h-4" />
-                      </Link>
+                      <button
+                        onClick={() => navigate(`/dashboard/applications/${app._id}`)}
+                        className="text-[11px] text-[#1B4D3E] hover:underline font-medium ml-1"
+                      >
+                        View Details
+                      </button>
                     </div>
                   </div>
                 </div>
