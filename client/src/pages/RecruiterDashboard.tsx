@@ -140,7 +140,7 @@ const RecruiterDashboard: React.FC = () => {
             {loading ? (
               [1, 2, 3].map(i => <div key={`job-skeleton-${i}`} className="h-20 bg-white border border-gray-100 rounded-lg animate-pulse" />)
             ) : activeJobs.length > 0 ? (
-              activeJobs.map((job, idx) => (
+              activeJobs.map((job) => (
                 <div key={job._id} className="bg-white border border-gray-200 rounded-lg p-3 hover:shadow-md transition-all group">
                   <div className="flex items-center justify-between mb-1">
                     <h3 className="text-sm font-semibold text-gray-900 truncate flex-1 mr-2">

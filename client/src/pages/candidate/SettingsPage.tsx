@@ -1,27 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Settings, 
-  Bell, 
-  Lock, 
-  Eye, 
-  Globe, 
-  Mail, 
-  AlertTriangle,
-  Monitor,
-  XCircle,
-  EyeOff,
-  CheckCircle,
-  Download,
-  Languages,
-  MapPin,
   IndianRupee,
   DollarSign,
   Euro,
   Loader2,
-  Check,
-  User as UserIcon,
   Phone as PhoneIcon,
-  FileText
+  FileText,
+  MapPin,
+  Languages,
+  Globe,
+  Settings,
+  Bell,
+  Lock,
+  Eye,
+  EyeOff,
+  CheckCircle,
+  Download,
+  AlertTriangle,
+  Monitor,
+  XCircle,
+  Mail
 } from 'lucide-react';
 import Card from '../../components/common/Card';
 import Button from '../../components/common/Button';

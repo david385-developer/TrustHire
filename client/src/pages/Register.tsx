@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { 
-  User, Building, Eye, EyeOff, Mail, Lock, UserPlus, 
-  Briefcase, GraduationCap, Calendar, Zap, CheckCircle, 
-  ShieldCheck, Sparkles, Loader2, AlertCircle
+  User, Building, Eye, EyeOff, Loader2
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
@@ -98,9 +96,6 @@ const Register: React.FC = () => {
     terms:           agreedTerms ? undefined : 'You must accept the terms',
   });
 
-  const clearErrors = () => {
-    setFieldErrors({});
-  };
 
   const handleBlur = (field: keyof FieldErrors) => {
     setTouched(prev => ({ ...prev, [field]: true }));
