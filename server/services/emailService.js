@@ -1,22 +1,27 @@
 const nodemailer = require('nodemailer');
 
 const transporter = nodemailer.createTransport({
-  host: process.env.MAILTRAP_HOST || 'sandbox.smtp.mailtrap.io',
-  port: parseInt(process.env.MAILTRAP_PORT) || 2525,
+  host: 'smtp.gmail.com',
+  port: 465,
+  secure: true,
   auth: {
-    user: process.env.MAILTRAP_USER,
-    pass: process.env.MAILTRAP_PASS
-  }
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS
+  },
+  family: 4,
+  connectionTimeout: 30000,
+  greetingTimeout: 15000,
+  socketTimeout: 30000
 });
 
 const verifyEmail = async () => {
   try {
-    if (!process.env.MAILTRAP_USER || !process.env.MAILTRAP_PASS) {
-      console.error('EMAIL: MAILTRAP credentials missing');
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+      console.error('EMAIL: EMAIL_USER or EMAIL_PASS missing');
       return false;
     }
     await transporter.verify();
-    console.log('EMAIL: Mailtrap transporter verified');
+    console.log('EMAIL: Transporter verified successfully');
     return true;
   } catch (error) {
     console.error('EMAIL: Transporter FAILED:', error.message);
@@ -26,8 +31,12 @@ const verifyEmail = async () => {
 
 const sendMail = async (to, subject, html) => {
   try {
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+      console.error('EMAIL: Credentials missing, skipping');
+      return false;
+    }
     const info = await transporter.sendMail({
-      from: '"TrustHire" <noreply@trusthire.in>',
+      from: `"TrustHire" <${process.env.EMAIL_USER}>`,
       to,
       subject,
       html
@@ -49,12 +58,14 @@ const sendOTPEmail = async (email, name, otp) => {
       <div style="padding:32px 24px;">
         <h2 style="color:#1A1A1A;">Hi ${name},</h2>
         <p style="color:#4B5563;font-size:16px;">
-          Welcome to TrustHire! Verify your email using the code below:
+          Welcome to TrustHire! Verify your email
+          using the code below:
         </p>
         <div style="text-align:center;margin:24px 0;">
-          <div style="display:inline-block;background:#F3F4F6;
-            padding:16px 32px;border-radius:8px;
-            font-size:32px;font-weight:bold;letter-spacing:8px;
+          <div style="display:inline-block;
+            background:#F3F4F6;padding:16px 32px;
+            border-radius:8px;font-size:32px;
+            font-weight:bold;letter-spacing:8px;
             font-family:monospace;color:#1B4D3E;">
             ${otp}
           </div>
@@ -81,12 +92,14 @@ const sendResetOTPEmail = async (email, name, otp) => {
       <div style="padding:32px 24px;">
         <h2 style="color:#1A1A1A;">Hi ${name},</h2>
         <p style="color:#4B5563;font-size:16px;">
-          You requested to reset your password. Use the code below:
+          You requested to reset your password.
+          Use the code below:
         </p>
         <div style="text-align:center;margin:24px 0;">
-          <div style="display:inline-block;background:#F3F4F6;
-            padding:16px 32px;border-radius:8px;
-            font-size:32px;font-weight:bold;letter-spacing:8px;
+          <div style="display:inline-block;
+            background:#F3F4F6;padding:16px 32px;
+            border-radius:8px;font-size:32px;
+            font-weight:bold;letter-spacing:8px;
             font-family:monospace;color:#1B4D3E;">
             ${otp}
           </div>
