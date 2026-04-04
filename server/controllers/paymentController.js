@@ -3,6 +3,42 @@ const Transaction = require('../models/Transaction');
 const crypto = require('crypto');
 const { sendFeeConfirmed } = require('../services/emailService');
 const { notifyPriorityApplication } = require('../services/notificationService');
+const razorpay = require('../config/razorpay');
+
+exports.createOrder = async (req, res) => {
+  try {
+    const { applicationId, amount } = req.body;
+
+    const application = await Application.findById(applicationId);
+    if (!application) {
+      return res.status(404).json({ success: false, message: 'Application not found' });
+    }
+
+    if (!razorpay) {
+      return res.status(503).json({ success: false, message: 'Payment gateway temporarily unavailable' });
+    }
+
+    const options = {
+      amount: Math.round(amount * 100), // Razorpay handles in paise
+      currency: 'INR',
+      receipt: `app_${applicationId}`
+    };
+
+    const order = await razorpay.orders.create(options);
+    
+    application.orderId = order.id;
+    await application.save();
+
+    res.json({
+      success: true,
+      orderId: order.id,
+      amount: order.amount,
+      keyId: process.env.RAZORPAY_KEY_ID
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
 
 exports.verifyPayment = async (req, res) => {
   try {

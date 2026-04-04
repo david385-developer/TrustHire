@@ -10,7 +10,6 @@ import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import Modal from '../components/common/Modal';
 import Textarea from '../components/common/Textarea';
-import loadRazorpay from '../utils/loadRazorpay.js';
 
 interface Job {
   _id: string;
@@ -42,6 +41,15 @@ const JobDetail: React.FC = () => {
 
   useEffect(() => {
     fetchJobDetail();
+    
+    // Load Razorpay script
+    if (!document.getElementById('razorpay-script')) {
+      const script = document.createElement('script');
+      script.id = 'razorpay-script';
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.async = true;
+      document.body.appendChild(script);
+    }
   }, [id]);
 
   const fetchJobDetail = async () => {
@@ -67,66 +75,95 @@ const JobDetail: React.FC = () => {
   const submitApplication = async () => {
     if (!job) return;
     setApplying(true);
+
     try {
-      let response;
-      try {
-        response = await api.post(`/applications/${job._id}`, { coverLetter, feeAmount: applyWithFee ? job.challengeFeeAmount : 0 });
-      } catch (error: any) {
-        toast.error(error.response?.data?.message || 'Something went wrong. Please try again.');
-        setApplying(false);
-        return;
-      }
+      // Step 1: Create application
+      const appRes = await api.post(`/applications/${job._id}`, { coverLetter });
+      const applicationData = appRes.data.data;
+      const applicationId = applicationData._id;
 
-      const { data } = response;
-      if (applyWithFee && data.orderId) {
-        try {
-          const razorpayLoaded = await loadRazorpay();
-          if (!razorpayLoaded) { toast.error('Payment system failed to load. Please try again.'); setApplying(false); return; }
+      // Step 2: If job has fee, create payment order
+      if (applyWithFee) {
+        if (!(window as any).Razorpay) {
+          toast.error('Payment system loading. Try again.');
+          setApplying(false);
+          return;
+        }
 
-          const options = {
-            key: data.keyId,
-            amount: job.challengeFeeAmount * 100,
-            currency: 'INR',
-            name: 'TrustHire',
-            description: `Challenge Fee for ${job.title}`,
-            order_id: data.orderId,
-            handler: async (paymentResponse: any) => {
-              try {
-                const verifyRes = await api.post('/payments/verify', {
-                  razorpay_payment_id: paymentResponse.razorpay_payment_id,
-                  razorpay_order_id: paymentResponse.razorpay_order_id,
-                  razorpay_signature: paymentResponse.razorpay_signature,
-                  applicationId: data.data._id
-                });
-                if (verifyRes.data.success) {
-                  toast.success('Payment successful! Application prioritized.');
-                  setShowApplyModal(false);
-                  setHasApplied(true);
-                  navigate('/dashboard');
-                } else {
-                  toast.error('Payment verification failed. Contact support.');
-                }
-              } catch (error) {
-                toast.error('Payment verification failed. Contact support.');
-              } finally {
-                setApplying(false);
+        const orderRes = await api.post('/payments/create-order', {
+          applicationId,
+          amount: job.challengeFeeAmount
+        });
+
+        const orderData = orderRes.data;
+
+        // Step 3: Open Razorpay
+        const options = {
+          key: orderData.keyId,
+          amount: orderData.amount,
+          currency: 'INR',
+          order_id: orderData.orderId,
+          name: 'TrustHire',
+          description: `Challenge Fee for ${job.title}`,
+          handler: async (response: any) => {
+            try {
+              const verifyRes = await api.post('/payments/verify', {
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_signature: response.razorpay_signature,
+                applicationId
+              });
+              
+              if (verifyRes.data.success) {
+                toast.success('Payment successful! Application prioritized.');
+                setShowApplyModal(false);
+                setHasApplied(true);
+                navigate('/dashboard');
+              } else {
+                toast.error('Payment verification failed.');
               }
-            },
-            modal: { ondismiss: () => { toast('Payment cancelled.'); setApplying(false); } },
-            prefill: { name: user?.name, email: user?.email },
-            theme: { color: '#1B4D3E' }
-          };
-          const rzp = new (window as any).Razorpay(options);
-          rzp.on('payment.failed', () => { toast.error('Payment failed.'); setApplying(false); });
-          rzp.open();
-        } catch (error) { toast.error('Something went wrong. Please try again.'); setApplying(false); }
+            } catch (err) {
+              toast.error('Payment verification failed');
+            } finally {
+              setApplying(false);
+            }
+          },
+          modal: {
+            ondismiss: () => {
+              toast('Payment cancelled');
+              setApplying(false);
+            }
+          },
+          prefill: {
+            name: user?.name,
+            email: user?.email
+          },
+          theme: {
+            color: '#1B4D3E'
+          }
+        };
+
+        const rzp = new (window as any).Razorpay(options);
+        rzp.on('payment.failed', (response: any) => {
+          toast.error('Payment failed: ' + response.error.description);
+          setApplying(false);
+        });
+        rzp.open();
       } else {
+        // Free application — no payment needed
         toast.success('Application submitted successfully!');
         setShowApplyModal(false);
         setHasApplied(true);
         navigate('/dashboard');
       }
-    } catch (error: any) { toast.error(error.response?.data?.message || 'Something went wrong.'); setApplying(false); }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to apply');
+    } finally {
+      // NOTE: For paid apps, setApplying(false) is mostly handled in Razorpay callbacks
+      if (!applyWithFee) {
+        setApplying(false);
+      }
+    }
   };
 
   const formatSalary = (salary: { min: number; max: number }) => {

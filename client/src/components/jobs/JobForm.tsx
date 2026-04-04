@@ -27,8 +27,11 @@ interface JobFormProps {
 const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, loading }) => {
   const [skills, setSkills] = useState<string[]>(job?.skills || []);
   const [skillInput, setSkillInput] = useState('');
+  const [feeEnabled, setFeeEnabled] = useState(job?.challengeFeeAmount > 0 || false);
+  const [feeAmount, setFeeAmount] = useState(job?.challengeFeeAmount?.toString() || '');
+  const [feeDays, setFeeDays] = useState(job?.challengeFeeDays?.toString() || '30');
 
-  const { register, handleSubmit, watch, formState: { errors }, reset } = useForm<JobFormData>({
+  const { register, handleSubmit, formState: { errors }, reset } = useForm<JobFormData>({
     defaultValues: {
       type: 'full-time',
       challengeFeeDays: 30,
@@ -36,7 +39,6 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, loading }) => {
     }
   });
 
-  const feeEnabled = watch('feeEnabled');
 
   useEffect(() => {
     if (job) {
@@ -55,6 +57,9 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, loading }) => {
         feeEnabled: job.challengeFeeAmount > 0
       });
       setSkills(job.skills || []);
+      setFeeEnabled(job.challengeFeeAmount > 0);
+      setFeeAmount(job.challengeFeeAmount?.toString() || '');
+      setFeeDays(job.challengeFeeDays?.toString() || '30');
     }
   }, [job, reset]);
 
@@ -95,8 +100,8 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, loading }) => {
         max: Number(data.experienceMax)
       },
       skills,
-      challengeFeeAmount: data.feeEnabled ? Number(data.challengeFeeAmount) : 0,
-      challengeFeeDays: data.feeEnabled ? Number(data.challengeFeeDays) : 30
+      challengeFeeAmount: feeEnabled ? parseInt(feeAmount) || 0 : 0,
+      challengeFeeDays: feeEnabled ? parseInt(feeDays) || 30 : 30
     };
 
     await onSubmit(jobData);
@@ -257,45 +262,59 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, loading }) => {
         )}
       </div>
 
-      {/* Challenge Fee Box */}
-      <div className="border border-amber-200 bg-amber-50 rounded-lg p-3 transition-all mt-4">
+      {/* Challenge Fee Section */}
+      <div className="mb-4 border border-amber-200 bg-amber-50 rounded-lg p-3 mt-4">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
-            <span className="text-sm font-bold text-gray-900 uppercase tracking-tight">Challenge Fee</span>
+            <span className="text-sm font-medium text-gray-900">
+              Challenge Fee
+            </span>
           </div>
           <label className="relative inline-flex items-center cursor-pointer">
-            <input type="checkbox" {...register('feeEnabled')} className="sr-only peer" />
-            <div className="w-8 h-4.5 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-amber-500"></div>
+            <input
+              type="checkbox"
+              checked={feeEnabled || false}
+              onChange={(e) => setFeeEnabled(e.target.checked)}
+              className="sr-only peer"
+            />
+            <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500">
+            </div>
           </label>
         </div>
 
         {feeEnabled && (
-          <div className="grid grid-cols-2 gap-3 mt-3 animate-fadeUp">
+          <div className="grid grid-cols-2 gap-3 mt-2">
             <div>
-              <label className="block text-[10px] font-bold text-amber-700 mb-1 uppercase tracking-wider">
-                Fee Amount (₹)
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Fee Amount (Rs.)
               </label>
               <input
                 type="number"
-                {...register('challengeFeeAmount', { required: feeEnabled })}
-                className="w-full px-3 py-1.5 text-sm border border-amber-200 rounded-md outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 text-gray-900 bg-white"
+                value={feeAmount || ''}
+                onChange={(e) => setFeeAmount(e.target.value)}
+                className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 text-gray-900 bg-white"
                 placeholder="500"
               />
             </div>
             <div>
-              <label className="block text-[10px] font-bold text-amber-700 mb-1 uppercase tracking-wider">
-                Refund Window (days)
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Auto-refund (days)
               </label>
               <input
                 type="number"
-                {...register('challengeFeeDays', { required: feeEnabled })}
-                className="w-full px-3 py-1.5 text-sm border border-amber-200 rounded-md outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 text-gray-900 bg-white"
+                value={feeDays || ''}
+                onChange={(e) => setFeeDays(e.target.value)}
+                className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 text-gray-900 bg-white"
                 placeholder="30"
               />
             </div>
           </div>
         )}
+
+        <p className="text-[11px] text-amber-700 mt-2">
+          Candidates pay this fee when applying. It shows their commitment. Refunded if not hired.
+        </p>
       </div>
 
       {/* Footer Actions */}

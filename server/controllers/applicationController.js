@@ -69,30 +69,8 @@ exports.applyToJob = async (req, res) => {
       feeAmount: requestedFee
     });
 
-    if (requestedFee > 0) {
-      // Create Razorpay Order
-      const options = {
-        amount: Math.round(requestedFee * 100),
-        currency: 'INR',
-        receipt: `receipt_app_${application._id}`
-      };
-      
-      const order = await razorpay.orders.create(options);
-      application.orderId = order.id;
-      
-      await application.save();
-
-      return res.status(201).json({ 
-        success: true, 
-        data: application, 
-        orderId: order.id, 
-        keyId: process.env.RAZORPAY_KEY_ID 
-      });
-    }
-
-    // Free application
     await application.save();
-    
+
     const candidate = req.user;
 
     // Notifications and Emails
