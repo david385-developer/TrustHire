@@ -63,10 +63,17 @@ exports.register = async (req, res) => {
       }
     });
 
-    // Fire-and-forget: don't block response if email fails
-    sendOTPEmail(user.email, user.name, otp).catch((err) =>
-      console.error('[register] OTP email failed:', err)
-    );
+    // Send OTP Email
+    try {
+      const emailSent = await sendOTPEmail(user.email, user.name, otp);
+      if (emailSent) {
+        console.log('EMAIL: OTP sent to', user.email);
+      } else {
+        console.error('EMAIL: OTP send returned false for', user.email);
+      }
+    } catch (err) {
+      console.error('EMAIL: OTP send exception:', err.message);
+    }
 
     res.status(201).json({
       success: true,
@@ -123,9 +130,17 @@ exports.login = async (req, res) => {
       };
       await user.save();
 
-      sendOTPEmail(user.email, user.name, otp).catch((err) =>
-        console.error('[login] OTP email failed:', err)
-      );
+      // Send OTP Email
+      try {
+        const emailSent = await sendOTPEmail(user.email, user.name, otp);
+        if (emailSent) {
+          console.log('EMAIL: OTP sent to', user.email);
+        } else {
+          console.error('EMAIL: OTP send returned false for', user.email);
+        }
+      } catch (err) {
+        console.error('EMAIL: OTP send exception:', err.message);
+      }
 
       return res.status(403).json({
         success: false,
@@ -290,9 +305,17 @@ exports.resendOTP = async (req, res) => {
     };
     await user.save();
 
-    sendOTPEmail(user.email, user.name, otp).catch((err) =>
-      console.error('[resend-otp] OTP email failed:', err)
-    );
+    // Send OTP Email
+    try {
+      const emailSent = await sendOTPEmail(user.email, user.name, otp);
+      if (emailSent) {
+        console.log('EMAIL: OTP sent to', user.email);
+      } else {
+        console.error('EMAIL: OTP send returned false for', user.email);
+      }
+    } catch (err) {
+      console.error('EMAIL: OTP send exception:', err.message);
+    }
 
     res.json({ success: true, message: 'New OTP sent to your email.' });
 
@@ -513,10 +536,16 @@ exports.forgotPassword = async (req, res) => {
     user.otp = { code: otp, expiresAt: getOTPExpiry(), attempts: 0, lockedUntil: null };
     await user.save();
 
+    // Send Reset OTP Email
     try {
-      await sendResetOTPEmail(user.email, user.name, otp);
+      const emailSent = await sendResetOTPEmail(user.email, user.name, otp);
+      if (emailSent) {
+        console.log('EMAIL: Reset OTP sent to', user.email);
+      } else {
+        console.error('EMAIL: Reset OTP send returned false for', user.email);
+      }
     } catch (err) {
-      console.error('Reset OTP email failed:', err.message);
+      console.error('EMAIL: Reset OTP send exception:', err.message);
     }
 
     res.json({ success: true, message: 'OTP sent to email' });
