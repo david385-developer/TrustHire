@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
   MapPin,
@@ -203,7 +203,15 @@ const ApplicationDetail: React.FC = () => {
     );
   }
 
-  const job = application.job || { title: 'Job Title', company: 'Company', location: 'N/A', type: 'N/A' };
+  const job = application.job || { 
+    _id: '', 
+    title: 'Job Title', 
+    company: 'Company', 
+    location: 'N/A', 
+    type: 'N/A',
+    salary: { min: 0, max: 0 },
+    experienceRequired: { min: 0, max: 0 }
+  };
   const status = application.status || 'pending';
   const companyName = job.company || 'Company';
   const initials = getInitials(companyName);
