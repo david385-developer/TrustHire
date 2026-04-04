@@ -1,6 +1,6 @@
 const Notification = require('../models/Notification');
 
-exports.getNotifications = async (req, res) => {
+const getNotifications = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
@@ -24,15 +24,12 @@ exports.getNotifications = async (req, res) => {
       unreadCount
     });
   } catch (error) {
-    console.error('GET notifications error:',
-      error.message);
-    res.status(500).json({
-      success: false, message: error.message
-    });
+    console.error('GET notifications error:', error.message);
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-exports.getUnreadCount = async (req, res) => {
+const getUnreadCount = async (req, res) => {
   try {
     const count = await Notification.countDocuments({
       recipient: req.user._id,
@@ -40,13 +37,11 @@ exports.getUnreadCount = async (req, res) => {
     });
     res.json({ success: true, count });
   } catch (error) {
-    res.status(500).json({
-      success: false, message: error.message
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-exports.markAsRead = async (req, res) => {
+const markAsRead = async (req, res) => {
   try {
     await Notification.findOneAndUpdate(
       { _id: req.params.id, recipient: req.user._id },
@@ -54,13 +49,11 @@ exports.markAsRead = async (req, res) => {
     );
     res.json({ success: true });
   } catch (error) {
-    res.status(500).json({
-      success: false, message: error.message
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-exports.markAllAsRead = async (req, res) => {
+const markAllAsRead = async (req, res) => {
   try {
     await Notification.updateMany(
       { recipient: req.user._id, isRead: false },
@@ -68,13 +61,11 @@ exports.markAllAsRead = async (req, res) => {
     );
     res.json({ success: true });
   } catch (error) {
-    res.status(500).json({
-      success: false, message: error.message
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-exports.deleteNotification = async (req, res) => {
+const deleteNotification = async (req, res) => {
   try {
     await Notification.findOneAndDelete({
       _id: req.params.id,
@@ -82,8 +73,14 @@ exports.deleteNotification = async (req, res) => {
     });
     res.json({ success: true });
   } catch (error) {
-    res.status(500).json({
-      success: false, message: error.message
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
+};
+
+module.exports = {
+  getNotifications,
+  getUnreadCount,
+  markAsRead,
+  markAllAsRead,
+  deleteNotification
 };
