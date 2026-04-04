@@ -66,7 +66,7 @@ exports.applyToJob = async (req, res) => {
       job: jobId,
       candidate: req.user.id,
       coverLetter: String(coverLetter || '').trim(),
-      feeAmount: requestedFee
+      feeAmount: job.challengeFeeAmount // Set from job directly
     });
 
     await application.save();

@@ -42,9 +42,13 @@ exports.register = async (req, res) => {
 
     const otp = generateOTP();
 
+    console.log('=== REGISTER OTP DEBUG ===');
+    console.log('Generated OTP:', otp);
+    console.log('OTP type:', typeof otp);
+
     user = await User.create({
       name,
-      email,
+      email: email.toLowerCase(),
       password: hashedPassword,
       role,
       gender,
@@ -56,12 +60,16 @@ exports.register = async (req, res) => {
       passedOutYear,
       isVerified: false,
       otp: {
-        code: otp,
+        code: String(otp),
         expiresAt: getOTPExpiry(),
         attempts: 0,
         lockedUntil: null
       }
     });
+
+    const checkUser = await User.findOne({ email: user.email });
+    console.log('Saved OTP:', JSON.stringify(checkUser.otp));
+    console.log('=== END REGISTER DEBUG ===');
 
     // Send OTP Email
     try {
@@ -123,7 +131,7 @@ exports.login = async (req, res) => {
     if (!user.isVerified) {
       const otp = generateOTP();
       user.otp = {
-        code: otp,
+        code: String(otp),
         expiresAt: getOTPExpiry(),
         attempts: 0,
         lockedUntil: null
@@ -183,6 +191,10 @@ exports.verifyOTP = async (req, res) => {
 
     const { email, otp } = req.body;
 
+    console.log('=== VERIFY REG OTP DEBUG ===');
+    console.log('Received OTP:', otp);
+    console.log('Received type:', typeof otp);
+
     if (!email || !otp) {
       return res.status(400).json({ success: false, message: 'Email and OTP are required.' });
     }
@@ -191,6 +203,10 @@ exports.verifyOTP = async (req, res) => {
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found.' });
     }
+
+    console.log('Stored OTP:', JSON.stringify(user.otp));
+    console.log('Stored code:', user.otp?.code);
+    console.log('Stored type:', typeof user.otp?.code);
 
     if (!user.otp || !user.otp.code) {
       return res.status(400).json({ success: false, message: 'No OTP pending. Request a new one.' });
@@ -216,8 +232,14 @@ exports.verifyOTP = async (req, res) => {
       });
     }
 
-    // Compare OTP
-    if (otp !== user.otp.code) {
+    // Compare OTP as strings
+    const stored = String(user.otp.code).trim();
+    const received = String(otp).trim();
+
+    console.log('Compare:', `"${stored}"`, '===', `"${received}"`, stored === received);
+
+    if (stored !== received) {
+      console.log('MISMATCH === END DEBUG ===');
       user.otp.attempts = (user.otp.attempts || 0) + 1;
 
       if (user.otp.attempts >= 5) {
@@ -242,6 +264,7 @@ exports.verifyOTP = async (req, res) => {
     }
 
     // ── OTP is correct ──
+    console.log('REG OTP VERIFIED === END DEBUG ===');
     user.isVerified = true;
     user.otp = undefined; // Clear OTP data
     await user.save();
@@ -298,7 +321,7 @@ exports.resendOTP = async (req, res) => {
 
     const otp = generateOTP();
     user.otp = {
-      code: otp,
+      code: String(otp),
       expiresAt: getOTPExpiry(),
       attempts: 0,
       lockedUntil: null
@@ -529,49 +552,211 @@ exports.exportData = async (req, res) => {
 exports.forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
-    const user = await User.findOne({ email: email.toLowerCase() });
-    if (!user) return res.status(404).json({ success: false, message: 'No user found' });
 
-    const otp = generateOTP();
-    user.otp = { code: otp, expiresAt: getOTPExpiry(), attempts: 0, lockedUntil: null };
-    await user.save();
-
-    // Send Reset OTP Email
-    try {
-      const emailSent = await sendResetOTPEmail(user.email, user.name, otp);
-      if (emailSent) {
-        console.log('EMAIL: Reset OTP sent to', user.email);
-      } else {
-        console.error('EMAIL: Reset OTP send returned false for', user.email);
-      }
-    } catch (err) {
-      console.error('EMAIL: Reset OTP send exception:', err.message);
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email is required'
+      });
     }
 
-    res.json({ success: true, message: 'OTP sent to email' });
+    const user = await User.findOne({ email: email.toLowerCase() });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'No account found with this email'
+      });
+    }
+
+    // Generate OTP
+    const otp = generateOTP();
+
+    // DEBUG
+    console.log('=== FORGOT PASSWORD DEBUG ===');
+    console.log('Generated OTP:', otp);
+    console.log('OTP type:', typeof otp);
+    console.log('User before save:', JSON.stringify(user.otp));
+
+    // Save OTP
+    user.otp = {
+      code: String(otp),
+      expiresAt: getOTPExpiry(),
+      attempts: 0,
+      lockedUntil: null
+    };
+    user.resetVerified = false;
+    await user.save();
+
+    // DEBUG — verify what was saved
+    const savedUser = await User.findOne({ email: email.toLowerCase() });
+    console.log('Saved OTP:', JSON.stringify(savedUser.otp));
+    console.log('Saved OTP code:', savedUser.otp?.code);
+    console.log('Saved OTP type:', typeof savedUser.otp?.code);
+    console.log('=== END DEBUG ===');
+
+    // Send email
+    try {
+      await sendResetOTPEmail(user.email, user.name, otp);
+      console.log('EMAIL: Reset OTP sent to', user.email);
+    } catch (err) {
+      console.error('EMAIL: Reset OTP failed:', err.message);
+    }
+
+    res.json({
+      success: true,
+      message: 'Reset code sent to your email'
+    });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+exports.verifyResetOtp = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    console.log('=== VERIFY RESET OTP DEBUG ===');
+    console.log('Request body:', JSON.stringify(req.body));
+    console.log('Email received:', email);
+    console.log('OTP received:', otp);
+    console.log('OTP received type:', typeof otp);
+
+    if (!email || !otp) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email and code are required'
+      });
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase() });
+
+    if (!user) {
+      console.log('User not found for email:', email);
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    console.log('User found:', user.email);
+    console.log('User.otp:', JSON.stringify(user.otp));
+    console.log('User.otp.code:', user.otp?.code);
+    console.log('User.otp.code type:', typeof user.otp?.code);
+    console.log('User.resetVerified:', user.resetVerified);
+
+    if (!user.otp || !user.otp.code) {
+      console.log('NO OTP FOUND on user');
+      return res.status(400).json({
+        success: false,
+        message: 'No code found. Request a new one.'
+      });
+    }
+
+    // Compare as strings
+    const stored = String(user.otp.code).trim();
+    const received = String(otp).trim();
+
+    console.log('STORED (trimmed):', `"${stored}"`);
+    console.log('RECEIVED (trimmed):', `"${received}"`);
+    console.log('STORED length:', stored.length);
+    console.log('RECEIVED length:', received.length);
+    console.log('MATCH:', stored === received);
+
+    // Character by character comparison
+    for (let i = 0; i < Math.max(stored.length, received.length); i++) {
+      console.log(
+        `Char ${i}: stored="${stored[i]}" ` +
+        `(${stored[i]?.charCodeAt(0)}) ` +
+        `received="${received[i]}" ` +
+        `(${received[i]?.charCodeAt(0)})`
+      );
+    }
+
+    if (stored !== received) {
+      console.log('OTP MISMATCH');
+      console.log('=== END DEBUG ===');
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid code'
+      });
+    }
+
+    // Check expiry
+    if (new Date() > new Date(user.otp.expiresAt)) {
+      console.log('OTP EXPIRED');
+      console.log('=== END DEBUG ===');
+      return res.status(400).json({
+        success: false,
+        message: 'Code expired. Request a new one.'
+      });
+    }
+
+    // OTP is valid
+    user.resetVerified = true;
+    await user.save();
+
+    console.log('OTP VERIFIED SUCCESSFULLY');
+    console.log('=== END DEBUG ===');
+
+    res.json({
+      success: true,
+      message: 'Code verified'
+    });
+  } catch (error) {
+    console.error('VERIFY ERROR:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
   }
 };
 
 exports.resetPassword = async (req, res) => {
   try {
-    const { email, otp, newPassword } = req.body;
-    const user = await User.findOne({ email: email.toLowerCase() });
-    if (!user) return res.status(404).json({ success: false, message: 'No user found' });
+    const { email, newPassword } = req.body;
 
-    if (user.otp?.code !== otp || hasOTPExpired(user.otp)) {
-      return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 6 characters'
+      });
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase() });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    if (!user.resetVerified) {
+      return res.status(403).json({
+        success: false,
+        message: 'Please verify your code first'
+      });
     }
 
     const salt = await bcrypt.genSalt(10);
     user.password = await bcrypt.hash(newPassword, salt);
     user.otp = undefined;
+    user.resetVerified = false;
     await user.save();
 
-    res.json({ success: true, message: 'Password reset successful' });
+    res.json({
+      success: true,
+      message: 'Password reset successful'
+    });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
   }
 };
 

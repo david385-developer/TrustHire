@@ -127,14 +127,14 @@ const VerifyOTP: React.FC = () => {
   const isLocked = lockSecsLeft > 0;
 
   return (
-    <div className="h-screen flex items-center justify-center bg-gray-50 p-4 pt-16">
-      <div className="w-full max-w-[360px] bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+      <div className="max-w-sm bg-white rounded-lg shadow-sm border border-gray-200 p-5">
         <div className="mb-6">
-          <div className="w-10 h-10 bg-emerald-50 rounded-lg flex items-center justify-center mb-4 text-[#1B4D3E]">
+          <div className="w-10 h-10 bg-emerald-50 rounded-lg flex items-center justify-center mb-2 text-[#1B4D3E] scale-90">
             <MailCheck className="w-5 h-5" />
           </div>
           <h2 className="text-lg font-bold text-gray-900 leading-tight mb-1">Verify Your Email</h2>
-          <p className="text-[11px] text-gray-500 font-medium">
+          <p className="text-xs text-gray-500 mb-4">
             We've sent a 6-digit code to <span className="text-gray-900 font-bold">{email}</span>
           </p>
         </div>
@@ -149,7 +149,7 @@ const VerifyOTP: React.FC = () => {
         )}
 
         <div className="space-y-6">
-          <div className="flex justify-between gap-1.5">
+          <div className="flex justify-between gap-2 mb-4">
             {otp.map((digit, i) => (
               <input
                 key={i}
@@ -162,7 +162,7 @@ const VerifyOTP: React.FC = () => {
                 onChange={e => handleChange(i, e.target.value)}
                 onKeyDown={e => handleKeyDown(i, e)}
                 onPaste={i === 0 ? handlePaste : undefined}
-                className={`w-full h-12 bg-white border rounded-md text-center text-lg font-bold transition-all outline-none 
+                className={`w-10 h-11 bg-white border rounded-md text-center text-lg font-bold transition-all outline-none 
                   ${status === 'success' ? 'border-emerald-500 bg-emerald-50 text-emerald-600' : 
                     status === 'error' ? 'border-red-500 bg-red-50 text-red-600' : 
                     digit ? 'border-[#1B4D3E] ring-1 ring-[#1B4D3E]' : 'border-gray-200 focus:border-[#1B4D3E]'}
@@ -172,7 +172,7 @@ const VerifyOTP: React.FC = () => {
           </div>
 
           {errorMsg && !isLocked && (
-            <div className="flex items-center gap-2 text-[10px] font-bold text-red-600">
+            <div className="flex items-center gap-2 p-2 bg-red-50 text-xs text-red-600 mb-3 rounded border border-red-100">
               <RefreshCw className="w-3 h-3" />
               <span>{errorMsg}</span>
             </div>
@@ -181,7 +181,7 @@ const VerifyOTP: React.FC = () => {
           <button
             onClick={handleVerify}
             disabled={status === 'loading' || status === 'success' || isLocked}
-            className="w-full py-2 bg-[#1B4D3E] text-white rounded-md font-bold text-xs hover:bg-[#0F3D2E] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+            className="w-full py-2 bg-[#1B4D3E] text-white rounded-md font-bold text-sm hover:bg-[#0F3D2E] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
           >
             {status === 'loading' ? (
               <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Verifying</>
@@ -194,14 +194,14 @@ const VerifyOTP: React.FC = () => {
 
           <div className="flex flex-col items-center gap-4 pt-4 border-t border-gray-50">
             <div className="flex items-center justify-between w-full">
-              <span className="text-[10px] text-gray-400 font-medium">No code?</span>
+              <span className="text-xs text-gray-400 font-medium">No code?</span>
               {resendCooldown > 0 ? (
-                <span className="text-[10px] text-gray-400 font-bold">Resend in {resendCooldown}s</span>
+                <span className="text-xs text-gray-400 font-bold">Resend in {resendCooldown}s</span>
               ) : (
                 <button
                   onClick={handleResend}
                   disabled={resendLoading || isLocked}
-                  className="text-[10px] text-[#1B4D3E] font-bold hover:underline flex items-center gap-1"
+                  className="text-xs text-[#1B4D3E] font-bold hover:underline flex items-center gap-1"
                 >
                   {resendLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
                   Resend Code
@@ -209,7 +209,7 @@ const VerifyOTP: React.FC = () => {
               )}
             </div>
 
-            <Link to="/register" className="text-[10px] text-gray-400 hover:text-gray-600 font-bold flex items-center gap-1 group">
+            <Link to="/register" className="text-xs text-gray-400 hover:text-gray-600 font-bold flex items-center gap-1 group mt-3">
               <ArrowLeft className="w-3 h-3 transition-transform group-hover:-translate-x-1" />
               Change email address
             </Link>

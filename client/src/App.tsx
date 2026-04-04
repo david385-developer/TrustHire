@@ -13,6 +13,7 @@ import JobDetail from './pages/JobDetail';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import VerifyOTP from './pages/VerifyOTP';
+import ForgotPassword from './pages/ForgotPassword';
 import CandidateDashboard from './pages/CandidateDashboard';
 import CandidateApplications from './pages/candidate/ApplicationsPage';
 import CandidateProfile from './pages/candidate/ProfilePage';
@@ -29,7 +30,7 @@ import RecruiterSettings from './pages/recruiter/SettingsPage';
 import CandidateLayout from './layouts/CandidateLayout';
 import RecruiterLayout from './layouts/RecruiterLayout';
 
-import ApplicationDetail from './pages/ApplicationDetail';
+import ApplicationDetail from './pages/candidate/ApplicationDetail';
 import PostJob from './pages/PostJob';
 import EditJob from './pages/EditJob';
 import RecruiterApplications from './pages/RecruiterApplications';
@@ -83,6 +84,7 @@ function App() {
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
               <Route path="/verify-otp" element={<VerifyOTP />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
             </Route>
 
             {/* Candidate Dashboard Routes */}

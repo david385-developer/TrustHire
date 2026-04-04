@@ -110,6 +110,10 @@ const UserSchema = new mongoose.Schema({
     expiresAt: Date,
     attempts: { type: Number, default: 0 },
     lockedUntil: Date
+  },
+  resetVerified: {
+    type: Boolean,
+    default: false
   }
 }, { timestamps: true });
 

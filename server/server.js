@@ -8,41 +8,29 @@ const { verifyEmail } = require('./services/emailService');
 
 const app = express();
 
-// Middleware
-const allowedOrigins = new Set(
-  [
-    process.env.CLIENT_URL,
-    'http://localhost:5173',
-    'http://127.0.0.1:5173',
-    'http://localhost:4173',
-    'http://127.0.0.1:4173'
-  ].filter(Boolean)
-);
+const corsOptions = {
+  origin: process.env.CLIENT_URL || 'http://localhost:5173',
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+};
 
-app.use(cors({
-  origin(origin, callback) {
-    if (!origin) return callback(null, true);
-    const isAllowedDevOrigin = /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin);
-    const isVercelOrigin = origin.endsWith('.vercel.app');
-    if (allowedOrigins.has(origin) || isAllowedDevOrigin || isVercelOrigin) {
-      return callback(null, true);
-    }
-    console.error(`[CORS] Rejected Origin: ${origin}`);
-    return callback(new Error(`CORS blocked for origin: ${origin}`));
-  },
-  credentials: true
-}));
-
-app.use(express.json({ extended: false }));
+app.use(cors(corsOptions));
+app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Health check
+// Health checks
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date() });
+});
+
 app.get('/api/health', (req, res) => {
   const isDbConnected = mongoose.connection.readyState === 1;
   res.status(isDbConnected ? 200 : 503).json({
     success: isDbConnected,
     server: 'up',
-    database: isDbConnected ? 'connected' : 'disconnected'
+    database: isDbConnected ? 'connected' : 'disconnected',
+    timestamp: new Date()
   });
 });
 
@@ -62,8 +50,6 @@ connectDB().then(async () => {
   console.log('PORT:', PORT);
   console.log('MONGO_URI:', process.env.MONGO_URI ? 'SET' : 'MISSING');
   console.log('JWT_SECRET:', process.env.JWT_SECRET ? 'SET' : 'MISSING');
-  console.log('MAILTRAP_USER:', process.env.MAILTRAP_USER ? 'SET' : 'MISSING');
-  console.log('MAILTRAP_PASS:', process.env.MAILTRAP_PASS ? 'SET' : 'MISSING');
   console.log('CLIENT_URL:', process.env.CLIENT_URL || 'MISSING');
   console.log('RAZORPAY_KEY:', process.env.RAZORPAY_KEY_ID ? 'SET' : 'MISSING');
 

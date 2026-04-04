@@ -35,7 +35,6 @@ const JobDetail: React.FC = () => {
   const [hasApplied, setHasApplied] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showApplyModal, setShowApplyModal] = useState(false);
-  const [applyWithFee, setApplyWithFee] = useState(false);
   const [coverLetter, setCoverLetter] = useState('');
   const [applying, setApplying] = useState(false);
 
@@ -65,67 +64,64 @@ const JobDetail: React.FC = () => {
     }
   };
 
-  const handleApply = (withFee: boolean) => {
+  const handleApplyClick = () => {
     if (!isAuthenticated) { toast.error('Please login to apply'); navigate('/login'); return; }
     if (user?.role === 'recruiter') { toast.error('Recruiters cannot apply to jobs'); return; }
-    setApplyWithFee(withFee);
-    setShowApplyModal(true);
+    if (!job) return;
+    
+    if (job.challengeFeeAmount > 0) {
+      setShowApplyModal(true);
+    } else {
+      handleConfirmApply();
+    }
   };
 
-  const submitApplication = async () => {
+  const handleConfirmApply = async () => {
     if (!job) return;
     setApplying(true);
 
     try {
-      // Step 1: Create application
-      const appRes = await api.post(`/applications/${job._id}`, { coverLetter });
-      const applicationData = appRes.data.data;
-      const applicationId = applicationData._id;
+      // 1. Create application
+      const { data } = await api.post(
+        `/applications/${job._id}`,
+        { coverLetter: coverLetter || '' }
+      );
+      const applicationId = data.data?._id || data.applicationId || data._id;
 
-      // Step 2: If job has fee, create payment order
-      if (applyWithFee) {
+      // 2. If fee > 0, create payment order + open Razorpay
+      if (job.challengeFeeAmount > 0) {
+        const orderRes = await api.post(
+          '/payments/create-order',
+          { applicationId, amount: job.challengeFeeAmount }
+        );
+        const orderData = orderRes.data;
+
         if (!(window as any).Razorpay) {
           toast.error('Payment system loading. Try again.');
           setApplying(false);
           return;
         }
 
-        const orderRes = await api.post('/payments/create-order', {
-          applicationId,
-          amount: job.challengeFeeAmount
-        });
-
-        const orderData = orderRes.data;
-
-        // Step 3: Open Razorpay
         const options = {
           key: orderData.keyId,
           amount: orderData.amount,
           currency: 'INR',
           order_id: orderData.orderId,
           name: 'TrustHire',
-          description: `Challenge Fee for ${job.title}`,
+          description: `Challenge Fee — ${job.title}`,
           handler: async (response: any) => {
             try {
-              const verifyRes = await api.post('/payments/verify', {
+              await api.post('/payments/verify', {
                 razorpay_payment_id: response.razorpay_payment_id,
                 razorpay_order_id: response.razorpay_order_id,
                 razorpay_signature: response.razorpay_signature,
                 applicationId
               });
-              
-              if (verifyRes.data.success) {
-                toast.success('Payment successful! Application prioritized.');
-                setShowApplyModal(false);
-                setHasApplied(true);
-                navigate('/dashboard');
-              } else {
-                toast.error('Payment verification failed.');
-              }
+              toast.success('Payment successful!');
+              setShowApplyModal(false);
+              navigate('/dashboard/applications');
             } catch (err) {
               toast.error('Payment verification failed');
-            } finally {
-              setApplying(false);
             }
           },
           modal: {
@@ -134,13 +130,8 @@ const JobDetail: React.FC = () => {
               setApplying(false);
             }
           },
-          prefill: {
-            name: user?.name,
-            email: user?.email
-          },
-          theme: {
-            color: '#1B4D3E'
-          }
+          prefill: { name: user?.name, email: user?.email },
+          theme: { color: '#1B4D3E' }
         };
 
         const rzp = new (window as any).Razorpay(options);
@@ -150,17 +141,16 @@ const JobDetail: React.FC = () => {
         });
         rzp.open();
       } else {
-        // Free application — no payment needed
-        toast.success('Application submitted successfully!');
+        // Free apply
+        toast.success('Application submitted!');
         setShowApplyModal(false);
         setHasApplied(true);
-        navigate('/dashboard');
+        navigate('/dashboard/applications');
       }
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to apply');
     } finally {
-      // NOTE: For paid apps, setApplying(false) is mostly handled in Razorpay callbacks
-      if (!applyWithFee) {
+      if (job.challengeFeeAmount <= 0) {
         setApplying(false);
       }
     }
@@ -169,6 +159,15 @@ const JobDetail: React.FC = () => {
   const formatSalary = (salary: { min: number; max: number }) => {
     const f = (n: number) => n >= 100000 ? `${(n / 100000).toFixed(1)}L` : `${(n / 1000).toFixed(0)}K`;
     return `₹${f(salary.min)} - ₹${f(salary.max)}`;
+  };
+
+  const formatExperience = (exp: { min: number; max: number }) => {
+    if (!exp) return 'Not specified';
+    const min = exp.min ?? 0;
+    const max = exp.max ?? 0;
+    if (min === 0 && max === 0) return 'Fresher';
+    if (min === max) return `${min} yrs`;
+    return `${min}-${max} yrs`;
   };
 
   if (loading) return <div className="h-screen flex items-center justify-center bg-gray-50"><Loader2 className="w-6 h-6 animate-spin text-[#1B4D3E]" /></div>;
@@ -188,7 +187,7 @@ const JobDetail: React.FC = () => {
           </button>
           {!hasApplied && (
             <button 
-              onClick={() => handleApply(job.challengeFeeAmount > 0)}
+              onClick={handleApplyClick}
               className="px-3 py-1.5 text-xs font-medium bg-[#1B4D3E] text-white rounded-md hover:bg-[#0F3D2E]"
             >
               Apply Now
@@ -242,7 +241,7 @@ const JobDetail: React.FC = () => {
 
           {/* OVERVIEW SECTION */}
           <div className="bg-white border border-gray-200 rounded-lg p-3 mb-2">
-            <h3 className="text-xs font-semibold text-gray-900 mb-2 uppercase tracking-wider">Job Overview</h3>
+            <h3 className="text-xs font-semibold text-gray-900 mb-1.5 uppercase tracking-wider">Job Overview</h3>
             <div className="grid grid-cols-2 gap-3">
               <div className="flex items-center gap-2">
                 <div className="w-7 h-7 rounded bg-gray-50 flex items-center justify-center flex-shrink-0">
@@ -250,7 +249,7 @@ const JobDetail: React.FC = () => {
                 </div>
                 <div>
                   <p className="text-[10px] text-gray-400 font-bold uppercase">Experience</p>
-                  <p className="text-xs text-gray-700 font-semibold">{job.experienceRequired.min}-{job.experienceRequired.max} Yrs</p>
+                  <p className="text-xs text-gray-700 font-semibold uppercase tracking-tight">{formatExperience(job.experienceRequired)}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -267,7 +266,7 @@ const JobDetail: React.FC = () => {
 
           {/* SKILLS SECTION */}
           <div className="bg-white border border-gray-200 rounded-lg p-3 mb-2">
-            <h3 className="text-xs font-semibold text-gray-900 mb-2 uppercase tracking-wider">Required Skills</h3>
+            <h3 className="text-xs font-semibold text-gray-900 mb-1.5 uppercase tracking-wider">Required Skills</h3>
             <div className="flex flex-wrap gap-1.5">
               {job.skills.map(skill => (
                 <span key={skill} className="text-[11px] px-2 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-200">
@@ -315,7 +314,7 @@ const JobDetail: React.FC = () => {
       {!hasApplied && (
         <div className="md:hidden flex-shrink-0 p-2 bg-white border-t border-gray-200">
           <button 
-            onClick={() => handleApply(job.challengeFeeAmount > 0)}
+            onClick={handleApplyClick}
             className="w-full py-2 text-xs font-medium bg-[#1B4D3E] text-white rounded-md hover:bg-[#0F3D2E]"
           >
             {job.challengeFeeAmount > 0 ? `Apply with ₹${job.challengeFeeAmount} Fee` : 'Apply Now — Free'}
@@ -336,7 +335,7 @@ const JobDetail: React.FC = () => {
             />
           </div>
 
-          {applyWithFee && (
+          {job.challengeFeeAmount > 0 && (
             <div className="p-3 bg-amber-50 rounded-lg border border-amber-100 flex gap-3">
               <Shield className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
               <div>
@@ -356,11 +355,11 @@ const JobDetail: React.FC = () => {
               Cancel
             </button>
             <button 
-              onClick={submitApplication} 
+              onClick={handleConfirmApply} 
               disabled={applying} 
               className="flex-1 py-2 bg-[#1B4D3E] text-white text-xs font-bold rounded-md hover:bg-[#0F3D2E] flex items-center justify-center gap-2"
             >
-              {applying ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : applyWithFee ? 'Proceed' : 'Confirm'}
+              {applying ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : job.challengeFeeAmount > 0 ? 'Proceed' : 'Confirm'}
             </button>
           </div>
         </div>

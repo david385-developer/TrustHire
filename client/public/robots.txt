@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Allow: /jobs
+Allow: /login
+Allow: /register
+Disallow: /dashboard
+Disallow: /recruiter
+Disallow: /api

@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   Briefcase, Calendar, PlusCircle, Users, Eye,
-  ChevronRight, BarChart3, Clock, MapPin, UserCheck
+  ChevronRight, BarChart3, Clock, MapPin, UserCheck, Zap
 } from 'lucide-react';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
@@ -21,6 +21,7 @@ interface Job {
   shortlistedCount: number;
   interviewCount: number;
   viewCount: number;
+  experienceRequired: { min: number; max: number };
 }
 
 interface RecruiterApplication {
@@ -79,6 +80,15 @@ const RecruiterDashboard: React.FC = () => {
       .slice(0, 4),
     [applications]
   );
+
+  const formatExperience = (exp: any) => {
+    if (!exp) return '0 yrs';
+    const min = exp.min ?? 0;
+    const max = exp.max ?? 0;
+    if (min === 0 && max === 0) return 'Fresher';
+    if (min === max) return `${min} yrs`;
+    return `${min}-${max} yrs`;
+  };
 
   const stats = [
     { label: 'Active Postings', value: jobs.filter(j => j.isActive).length, icon: Briefcase, color: 'text-emerald-600', bg: 'bg-emerald-50' },
@@ -159,6 +169,10 @@ const RecruiterDashboard: React.FC = () => {
                     <span className="flex items-center gap-1">
                       <Briefcase className="w-3 h-3" />
                       {job.type}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Zap className="w-3 h-3 text-amber-500" />
+                      {formatExperience(job.experienceRequired)}
                     </span>
                     <span className="flex items-center gap-1">
                       <Clock className="w-3 h-3" />

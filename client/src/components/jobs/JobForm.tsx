@@ -263,57 +263,50 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, loading }) => {
       </div>
 
       {/* Challenge Fee Section */}
-      <div className="mb-4 border border-amber-200 bg-amber-50 rounded-lg p-3 mt-4">
+      <div className="mb-4 border border-amber-200 bg-amber-50 rounded-lg p-3">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
-            <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
-            <span className="text-sm font-medium text-gray-900">
-              Challenge Fee
-            </span>
+            <Star className="w-4 h-4 text-amber-500" />
+            <span className="text-sm font-medium text-gray-900">Challenge Fee</span>
           </div>
           <label className="relative inline-flex items-center cursor-pointer">
-            <input
-              type="checkbox"
-              checked={feeEnabled || false}
+            <input 
+              type="checkbox" 
+              checked={feeEnabled}
               onChange={(e) => setFeeEnabled(e.target.checked)}
-              className="sr-only peer"
+              className="sr-only peer" 
             />
-            <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500">
+            <div className="w-9 h-5 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500">
             </div>
           </label>
         </div>
-
         {feeEnabled && (
           <div className="grid grid-cols-2 gap-3 mt-2">
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Fee Amount (Rs.)
-              </label>
-              <input
-                type="number"
-                value={feeAmount || ''}
+              <label className="block text-xs font-medium text-gray-700 mb-1">Fee Amount (Rs.)</label>
+              <input 
+                type="number" 
+                value={feeAmount}
                 onChange={(e) => setFeeAmount(e.target.value)}
                 className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 text-gray-900 bg-white"
-                placeholder="500"
+                placeholder="500" 
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Auto-refund (days)
-              </label>
-              <input
-                type="number"
-                value={feeDays || ''}
+              <label className="block text-xs font-medium text-gray-700 mb-1">Auto-refund (days)</label>
+              <input 
+                type="number" 
+                value={feeDays}
                 onChange={(e) => setFeeDays(e.target.value)}
                 className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 text-gray-900 bg-white"
-                placeholder="30"
+                placeholder="30" 
               />
             </div>
           </div>
         )}
-
         <p className="text-[11px] text-amber-700 mt-2">
-          Candidates pay this fee when applying. It shows their commitment. Refunded if not hired.
+          Candidates pay this fee when applying.
+          Refunded if not hired within specified days.
         </p>
       </div>
 

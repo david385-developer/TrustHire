@@ -57,6 +57,7 @@ exports.verifyPayment = async (req, res) => {
       application.feePaid = true;
       application.isPriority = true;
       application.paymentId = razorpay_payment_id;
+      application.feeAmount = application.job?.challengeFeeAmount || 0; // Final verify
       await application.save();
 
       const candidate = application.candidate;

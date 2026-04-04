@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   Search, MapPin, Filter, X, Briefcase, 
-  Clock, IndianRupee
+  Clock, IndianRupee, Zap
 } from 'lucide-react';
 import api from '../services/api';
 import Pagination from '../components/common/Pagination';
@@ -137,6 +137,15 @@ const Jobs: React.FC = () => {
     if (d === 1) return 'Yesterday';
     if (d < 7) return `${d}d ago`;
     return `${Math.floor(d / 7)}w ago`;
+  };
+
+  const formatExperience = (exp: { min: number; max: number }) => {
+    if (!exp) return '0 yrs';
+    const min = exp.min ?? 0;
+    const max = exp.max ?? 0;
+    if (min === 0 && max === 0) return 'Fresher';
+    if (min === max) return `${min} yrs`;
+    return `${min}-${max} yrs`;
   };
 
   const SidebarContent = () => (
@@ -357,6 +366,7 @@ const Jobs: React.FC = () => {
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-gray-500 mb-1.5">
                           <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{job.location}</span>
                           <span className="flex items-center gap-1"><Briefcase className="w-3 h-3" />{job.type}</span>
+                          <span className="flex items-center gap-1"><Zap className="w-3 h-3" />{formatExperience(job.experienceRequired)}</span>
                           <span className="flex items-center gap-1"><IndianRupee className="w-3 h-3" />{formatSalary(job.salary)}</span>
                           <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{getTimeAgo(job.createdAt)}</span>
                         </div>

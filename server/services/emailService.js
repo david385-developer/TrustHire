@@ -9,9 +9,9 @@ const transporter = nodemailer.createTransport({
     pass: process.env.EMAIL_PASS
   },
   family: 4,
-  connectionTimeout: 30000,
-  greetingTimeout: 15000,
-  socketTimeout: 30000
+  connectionTimeout: 60000,
+  greetingTimeout: 30000,
+  socketTimeout: 60000
 });
 
 const verifyEmail = async () => {
