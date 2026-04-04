@@ -1,10 +1,9 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { MailCheck, RefreshCw, ArrowLeft, Loader2, ShieldCheck, Lock, ArrowRight, Zap } from 'lucide-react';
+import { MailCheck, RefreshCw, ArrowLeft, Loader2, ShieldCheck, Lock, ArrowRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
-import Logo from '../components/common/Logo';
 
 const VerifyOTP: React.FC = () => {
   const location = useLocation();
@@ -128,152 +127,97 @@ const VerifyOTP: React.FC = () => {
   const isLocked = lockSecsLeft > 0;
 
   return (
-    <div className="min-h-screen grid lg:grid-cols-2">
-      {/* Left Section (consistent with auth) */}
-      <div className="hidden lg:flex flex-col justify-between p-16 hero-gradient relative overflow-hidden">
-        <div className="absolute top-0 right-0 -mr-24 -mt-24 w-96 h-96 bg-emerald-500/10 blur-[100px] rounded-full"></div>
-        
-        <div className="relative z-10">
-          <Logo variant="light" className="mb-16 scale-125 origin-left" />
-          <div className="max-w-md">
-            <h1 className="text-4xl md:text-5xl font-bold heading-font text-white mb-6 leading-tight">
-              Secure Your <br /><span className="text-emerald-400">Account Access</span>
-            </h1>
-            <p className="text-xl text-emerald-50/80 body-font mb-12">
-              We've enabled Two-Factor Verification to ensure your professional data remains protected by the TrustHire Shield.
-            </p>
-            <div className="space-y-6">
-              {[
-                { icon: <ShieldCheck className="w-5 h-5" />, text: "Priority Shield integration" },
-                { icon: <Lock className="w-5 h-5" />, text: "Point-to-point encryption" },
-                { icon: <Zap className="w-5 h-5" />, text: "Instant role activation" }
-              ].map((item, i) => (
-                <div key={i} className="flex items-center gap-4 text-emerald-100/90 font-medium animate-fadeUp" style={{ animationDelay: `${(i+1)*200}ms` }}>
-                  <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center border border-white/10">{item.icon}</div>
-                  <span>{item.text}</span>
-                </div>
-              ))}
-            </div>
+    <div className="h-screen flex items-center justify-center bg-gray-50 p-4 pt-16">
+      <div className="w-full max-w-[360px] bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+        <div className="mb-6">
+          <div className="w-10 h-10 bg-emerald-50 rounded-lg flex items-center justify-center mb-4 text-[#1B4D3E]">
+            <MailCheck className="w-5 h-5" />
           </div>
+          <h2 className="text-lg font-bold text-gray-900 leading-tight mb-1">Verify Your Email</h2>
+          <p className="text-[11px] text-gray-500 font-medium">
+            We've sent a 6-digit code to <span className="text-gray-900 font-bold">{email}</span>
+          </p>
         </div>
-        <p className="relative z-10 text-emerald-50/40 text-sm font-medium">© {new Date().getFullYear()} TrustHire. Precision & Trust.</p>
-      </div>
 
-      {/* Right Section: OTP Form */}
-      <div className="flex items-center justify-center p-8 md:p-16 bg-white overflow-hidden">
-        <div className="w-full max-w-md animate-fadeUp">
-          <div className="lg:hidden mb-12">
-            <Logo variant="dark" className="scale-110 origin-left" />
+        {isLocked && (
+          <div className="mb-4 p-3 bg-amber-50 border border-amber-100 rounded-lg flex items-center gap-3">
+             <Lock className="w-4 h-4 text-amber-500" />
+             <div className="text-[11px] text-amber-800 font-medium">
+               Locked for {Math.floor(lockSecsLeft/60)}m {lockSecsLeft%60}s
+             </div>
+          </div>
+        )}
+
+        <div className="space-y-6">
+          <div className="flex justify-between gap-1.5">
+            {otp.map((digit, i) => (
+              <input
+                key={i}
+                ref={el => { inputRefs.current[i] = el; }}
+                type="text"
+                inputMode="numeric"
+                maxLength={1}
+                value={digit}
+                disabled={status === 'loading' || status === 'success' || isLocked}
+                onChange={e => handleChange(i, e.target.value)}
+                onKeyDown={e => handleKeyDown(i, e)}
+                onPaste={i === 0 ? handlePaste : undefined}
+                className={`w-full h-12 bg-white border rounded-md text-center text-lg font-bold transition-all outline-none 
+                  ${status === 'success' ? 'border-emerald-500 bg-emerald-50 text-emerald-600' : 
+                    status === 'error' ? 'border-red-500 bg-red-50 text-red-600' : 
+                    digit ? 'border-[#1B4D3E] ring-1 ring-[#1B4D3E]' : 'border-gray-200 focus:border-[#1B4D3E]'}
+                  ${isLocked ? 'opacity-40 cursor-not-allowed' : ''}`}
+              />
+            ))}
           </div>
 
-          <div className="mb-10">
-            <div className="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center mb-6 text-emerald-600 shadow-inner">
-              <MailCheck className="w-8 h-8" />
-            </div>
-            <h2 className="text-3xl font-bold text-slate-900 heading-font mb-2">Check Your Inbox</h2>
-            <p className="text-slate-500 font-medium">
-              We've sent a code to <span className="text-slate-900 font-bold underline decoration-emerald-200 underline-offset-4">{email}</span>. Please enter it below.
-            </p>
-          </div>
-
-          {isLocked && (
-            <div className="mb-8 p-5 bg-amber-50 border border-amber-100 rounded-3xl flex items-center gap-4 animate-scaleIn">
-              <div className="w-10 h-10 bg-amber-500 rounded-xl flex items-center justify-center text-white flex-shrink-0 animate-pulse">
-                <Lock className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-amber-900 font-bold text-sm leading-none mb-1">Security Lockout</p>
-                <p className="text-amber-700 text-xs font-medium">Please wait {Math.floor(lockSecsLeft/60)}m {lockSecsLeft%60}s before retrying.</p>
-              </div>
+          {errorMsg && !isLocked && (
+            <div className="flex items-center gap-2 text-[10px] font-bold text-red-600">
+              <RefreshCw className="w-3 h-3" />
+              <span>{errorMsg}</span>
             </div>
           )}
 
-          <div className="space-y-8">
-            <div className="flex justify-between gap-3">
-              {otp.map((digit, i) => (
-                <input
-                  key={i}
-                  ref={el => { inputRefs.current[i] = el; }}
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={1}
-                  value={digit}
-                  disabled={status === 'loading' || status === 'success' || isLocked}
-                  onChange={e => handleChange(i, e.target.value)}
-                  onKeyDown={e => handleKeyDown(i, e)}
-                  onPaste={i === 0 ? handlePaste : undefined}
-                  className={`w-full h-16 bg-slate-50 border-2 rounded-2xl text-center text-2xl font-bold transition-all outline-none 
-                    ${status === 'success' ? 'border-emerald-500 bg-emerald-50 text-emerald-600 shadow-[0_0_0_4px_rgba(16,185,129,0.1)]' : 
-                      status === 'error' ? 'border-red-500 bg-red-50 text-red-600' : 
-                      digit ? 'border-emerald-500 bg-white shadow-lg' : 'border-slate-100 hover:border-emerald-200 focus:border-emerald-500 focus:bg-white'}
-                    ${isLocked ? 'opacity-40 cursor-not-allowed' : ''}`}
-                />
-              ))}
-            </div>
-
-            {errorMsg && !isLocked && (
-              <div className="p-4 bg-red-50 rounded-2xl border border-red-100 flex items-center gap-3 animate-fadeIn">
-                <AlertCircle className="w-5 h-5 text-red-500" />
-                <p className="text-red-900 font-bold text-sm">{errorMsg}</p>
-              </div>
+          <button
+            onClick={handleVerify}
+            disabled={status === 'loading' || status === 'success' || isLocked}
+            className="w-full py-2 bg-[#1B4D3E] text-white rounded-md font-bold text-xs hover:bg-[#0F3D2E] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+          >
+            {status === 'loading' ? (
+              <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Verifying</>
+            ) : status === 'success' ? (
+              <><ShieldCheck className="w-3.5 h-3.5" /> Verified</>
+            ) : (
+              <>Complete Verification <ArrowRight className="w-3.5 h-3.5" /></>
             )}
+          </button>
 
-            <button
-              id="verify-otp-btn"
-              onClick={handleVerify}
-              disabled={status === 'loading' || status === 'success' || isLocked}
-              className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/10 flex items-center justify-center gap-3 active:scale-95 disabled:opacity-50"
-            >
-              {status === 'loading' ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  Verifying Identity...
-                </>
-              ) : status === 'success' ? (
-                <>
-                  <ShieldCheck className="w-5 h-5" />
-                  Verified Successfully
-                </>
+          <div className="flex flex-col items-center gap-4 pt-4 border-t border-gray-50">
+            <div className="flex items-center justify-between w-full">
+              <span className="text-[10px] text-gray-400 font-medium">No code?</span>
+              {resendCooldown > 0 ? (
+                <span className="text-[10px] text-gray-400 font-bold">Resend in {resendCooldown}s</span>
               ) : (
-                <>
-                  Complete Verification
-                  <ArrowRight className="w-5 h-5" />
-                </>
+                <button
+                  onClick={handleResend}
+                  disabled={resendLoading || isLocked}
+                  className="text-[10px] text-[#1B4D3E] font-bold hover:underline flex items-center gap-1"
+                >
+                  {resendLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                  Resend Code
+                </button>
               )}
-            </button>
-
-            <div className="flex flex-col items-center gap-6 pt-4 border-t border-slate-50">
-              <div className="flex items-center gap-2">
-                <span className="text-slate-400 font-medium text-sm">Didn't receive the code?</span>
-                {resendCooldown > 0 ? (
-                  <span className="text-emerald-600 font-bold text-sm">Resend in {resendCooldown}s</span>
-                ) : (
-                  <button
-                    onClick={handleResend}
-                    disabled={resendLoading || isLocked}
-                    className="text-emerald-600 font-bold text-sm hover:underline flex items-center gap-1.5"
-                  >
-                    {resendLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-                    Resend Code
-                  </button>
-                )}
-              </div>
-
-              <Link to="/register" className="flex items-center gap-2 text-slate-400 hover:text-slate-600 font-bold text-sm transition-colors group">
-                <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
-                Re-enter email address
-              </Link>
             </div>
+
+            <Link to="/register" className="text-[10px] text-gray-400 hover:text-gray-600 font-bold flex items-center gap-1 group">
+              <ArrowLeft className="w-3 h-3 transition-transform group-hover:-translate-x-1" />
+              Change email address
+            </Link>
           </div>
         </div>
       </div>
     </div>
   );
 };
-
-// Simple AlertCircle fallback for this file if lucide-react doesn't expose it or if I missed it
-const AlertCircle = ({ className }: { className?: string }) => (
-  <svg className={className} xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-);
 
 export default VerifyOTP;
