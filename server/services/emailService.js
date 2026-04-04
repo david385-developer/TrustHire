@@ -13,7 +13,7 @@ const sendMail = async (to, subject, html) => {
     }
 
     const { data, error } = await resend.emails.send({
-      from: 'TrustHire <onboarding@resend.dev>',
+      from: process.env.RESEND_FROM || 'TrustHire <onboarding@resend.dev>',
       to,
       subject,
       html
