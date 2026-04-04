@@ -1,10 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
-  Briefcase, Calendar, Eye, FileText, PlusCircle, 
-  TrendingUp, UserCheck, Users, SearchCheck, 
-  ChevronRight, ArrowUpRight, BarChart3, Clock,
-  MapPin, ShieldCheck, Zap
+  Briefcase, Calendar, PlusCircle, Users, Eye,
+  ChevronRight, BarChart3, Clock, MapPin, UserCheck
 } from 'lucide-react';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
@@ -41,6 +39,8 @@ const RecruiterDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let mounted = true;
+
     const fetchDashboard = async () => {
       setLoading(true);
       try {
@@ -48,17 +48,27 @@ const RecruiterDashboard: React.FC = () => {
           api.get('/jobs/my-posts'),
           api.get('/applications/recruiter/all')
         ]);
-        setJobs(Array.isArray(jobsResponse.data?.data) ? jobsResponse.data.data : []);
-        setApplications(Array.isArray(applicationsResponse.data?.data) ? applicationsResponse.data.data : []);
+        if (mounted) {
+          setJobs(Array.isArray(jobsResponse.data?.data) ? jobsResponse.data.data : []);
+          setApplications(Array.isArray(applicationsResponse.data?.data) ? applicationsResponse.data.data : []);
+        }
       } catch (error: any) {
-        setJobs([]);
-        setApplications([]);
-        toast.error(error.response?.data?.message || 'Failed to load recruiter dashboard');
+        if (mounted) {
+          setJobs([]);
+          setApplications([]);
+          toast.error(error.response?.data?.message || 'Failed to load recruiter dashboard');
+        }
       } finally {
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
     };
     fetchDashboard();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   const activeJobs = useMemo(() => jobs.filter(j => j.isActive).slice(0, 5), [jobs]);
@@ -78,109 +88,112 @@ const RecruiterDashboard: React.FC = () => {
   ];
 
   return (
-    <div className="space-y-10 animate-fadeUp">
+    <div className="p-4 md:p-6 h-screen flex flex-col space-y-4 overflow-hidden">
       {/* Header & Main Actions */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 pb-4 border-b border-slate-100">
+      <div className="flex items-center justify-between mb-2">
         <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 text-emerald-600 text-xs font-bold mb-4 uppercase tracking-widest border border-emerald-100">
-            <Zap className="w-3 h-3" />
-            Recruiter Insights
-          </div>
-          <h1 className="text-4xl font-bold text-slate-900 heading-font mb-2 leading-tight">Welcome back, {user?.name.split(' ')[0]}!</h1>
-          <p className="text-slate-500 font-medium text-lg">You have <span className="text-emerald-600 font-bold">{jobs.filter(j => j.isActive).length} active roles</span> live. Your pipeline is looking healthy.</p>
+          <h1 className="text-xl font-bold text-gray-900">
+            Recruiter Dashboard
+          </h1>
+          <p className="text-xs text-gray-500">
+            Welcome back, {user?.name}
+          </p>
         </div>
-        <div className="flex items-center gap-4">
-          <Link to="/recruiter/analytics">
-            <button className="px-6 py-3 bg-white border-2 border-slate-100 rounded-2xl text-slate-700 font-bold hover:bg-slate-50 transition-all flex items-center gap-2 shadow-sm">
-              <BarChart3 className="w-5 h-5" /> Analytics
-            </button>
+        <div className="flex items-center gap-2">
+          <Link to="/recruiter/analytics" className="hidden md:block px-3 py-1.5 text-xs border border-gray-300 rounded-md hover:bg-gray-50 flex items-center gap-1.5 transition-colors">
+            <BarChart3 className="w-3.5 h-3.5" /> Analytics
           </Link>
-          <Link to="/recruiter/post-job">
-            <button className="px-8 py-3.5 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition-all flex items-center gap-2 shadow-xl shadow-slate-900/10 active:scale-95">
-              <PlusCircle className="w-5 h-5" /> Post New Job
-            </button>
+          <Link to="/recruiter/post-job"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-[#2563EB] text-white rounded-md hover:bg-blue-700 transition-all">
+            <PlusCircle className="w-3.5 h-3.5" />
+            Post Job
           </Link>
         </div>
       </div>
 
       {/* Stats Cluster */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat, idx) => (
-          <div key={stat.label} className="bg-white p-8 rounded-[32px] border border-slate-100 shadow-sm hover:shadow-xl transition-all group animate-fadeUp" style={{ animationDelay: `${idx * 100}ms` }}>
-            <div className="flex items-center justify-between mb-6">
-              <div className={`w-14 h-14 rounded-2xl ${stat.bg} ${stat.color} flex items-center justify-center transition-transform group-hover:scale-110 group-hover:-rotate-3 shadow-sm`}>
-                <stat.icon className="w-7 h-7" />
-              </div>
-              <div className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full flex items-center gap-1.5 uppercase tracking-wider">
-                <TrendingUp className="w-3.5 h-3.5" /> Live
-              </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+        {stats.map((stat) => (
+          <div key={stat.label} className="bg-white border border-gray-200 rounded-lg p-3 flex items-center gap-3 shadow-sm transition-all group">
+            <div className={`w-9 h-9 rounded-lg ${stat.bg} ${stat.color} flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-110 group-hover:-rotate-3`}>
+              <stat.icon className="w-4 h-4" />
             </div>
-            <p className="text-4xl font-bold text-slate-900 mb-2">{stat.value}</p>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest leading-none">{stat.label}</p>
+            <div>
+              <p className="text-xl md:text-2xl font-bold text-gray-900 leading-tight">{stat.value}</p>
+              <p className="text-xs text-gray-500">{stat.label}</p>
+            </div>
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 overflow-hidden">
         {/* Active Jobs List */}
-        <div className="lg:col-span-8 space-y-8">
-          <div className="flex items-center justify-between px-4">
-            <h2 className="text-2xl font-bold heading-font text-slate-900">Active Postings</h2>
-            <Link to="/recruiter/applications" className="group text-emerald-600 font-bold text-sm flex items-center gap-2 hover:gap-3 transition-all">
-              Comprehensive Pipeline <ChevronRight className="w-4 h-4" />
+        <div className="lg:col-span-8 flex flex-col min-h-0">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-sm font-semibold text-gray-900">Active Postings</h2>
+            <Link to="/recruiter/applications" className="text-xs font-bold text-emerald-600 hover:text-emerald-700">
+              View All Pipeline
             </Link>
           </div>
 
-          <div className="space-y-4">
+          <div className="flex-1 overflow-y-auto pr-2 space-y-2" style={{ maxHeight: 'calc(100vh - 280px)' }}>
             {loading ? (
-              [1, 2, 3].map(i => <div key={i} className="h-28 bg-white border border-slate-100 rounded-3xl animate-pulse" />)
+              [1, 2, 3].map(i => <div key={`job-skeleton-${i}`} className="h-20 bg-white border border-gray-100 rounded-lg animate-pulse" />)
             ) : activeJobs.length > 0 ? (
               activeJobs.map((job, idx) => (
-                <div key={job._id} className="bg-white border border-slate-100 rounded-[32px] p-8 shadow-sm hover:shadow-2xl hover:shadow-emerald-900/5 transition-all group animate-fadeUp" style={{ animationDelay: `${idx * 50}ms` }}>
-                  <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-8">
-                    <div className="flex flex-1 items-start gap-6 min-w-0">
-                      <div className="w-16 h-16 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-emerald-500 group-hover:text-white transition-all transform group-hover:rotate-6 flex-shrink-0">
-                        <Briefcase className="w-7 h-7" />
-                      </div>
-                      <div className="min-w-0">
-                        <h3 className="text-xl font-bold text-slate-900 mb-2 truncate group-hover:text-emerald-600 transition-colors">{job.title}</h3>
-                        <div className="flex flex-wrap items-center gap-4 text-xs font-bold text-slate-400 uppercase tracking-widest">
-                          <span className="flex items-center gap-1.5"><MapPin className="w-4 h-4 text-emerald-500" />{job.location}</span>
-                          <span className="flex items-center gap-1.5"><Clock className="w-4 h-4 text-blue-500" />{job.type}</span>
-                          <span className="flex items-center gap-1.5"><ShieldCheck className="w-4 h-4 text-amber-500" />Priority Search</span>
-                        </div>
-                      </div>
-                    </div>
+                <div key={job._id} className="bg-white border border-gray-200 rounded-lg p-3 hover:shadow-md transition-all group">
+                  <div className="flex items-center justify-between mb-1">
+                    <h3 className="text-sm font-semibold text-gray-900 truncate flex-1 mr-2">
+                      {job.title}
+                    </h3>
+                    <span className="flex-shrink-0 text-[10px] px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-100 font-bold uppercase tracking-wider">
+                      Active
+                    </span>
+                  </div>
 
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-8 xl:gap-14 text-center border-t xl:border-t-0 pt-8 xl:pt-0 border-slate-50">
-                      <div>
-                        <p className="text-2xl font-bold text-slate-900">{job.applicationCount || 0}</p>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Total</p>
-                      </div>
-                      <div>
-                        <p className="text-2xl font-bold text-amber-500">{job.priorityCount || 0}</p>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Priority</p>
-                      </div>
-                      <div>
-                        <p className="text-2xl font-bold text-emerald-600">{job.shortlistedCount || 0}</p>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Shorlisted</p>
-                      </div>
-                      <div className="flex items-center justify-center">
-                        <Link to={`/recruiter/jobs/${job._id}/applications`} className="w-12 h-12 flex items-center justify-center bg-slate-50 text-slate-400 hover:bg-emerald-600 hover:text-white rounded-2xl transition-all shadow-sm">
-                          <ArrowUpRight className="w-6 h-6" />
-                        </Link>
-                      </div>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-gray-500 mb-2">
+                    <span className="flex items-center gap-1">
+                      <MapPin className="w-3 h-3" />
+                      {job.location}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Briefcase className="w-3 h-3" />
+                      {job.type}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      {format(new Date(job.createdAt), 'MMM dd')}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2 border-t border-gray-50">
+                    <div className="flex items-center gap-3 text-[10px] text-gray-500 font-bold uppercase tracking-widest">
+                      <span className="flex items-center gap-1">
+                        <Users className="w-3 h-3 text-blue-500" />
+                        {job.applicationCount || 0} Apps
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <UserCheck className="w-3 h-3 text-amber-500" />
+                        {job.priorityCount || 0} Priority
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Link to={`/recruiter/jobs/${job._id}/applications`} className="text-[10px] px-2 py-1 border border-gray-300 rounded hover:bg-gray-50 transition-colors">
+                        View
+                      </Link>
+                      <Link to={`/recruiter/jobs/${job._id}/edit`} className="text-[10px] px-2 py-1 border border-gray-300 rounded hover:bg-gray-50 transition-colors">
+                        Edit
+                      </Link>
                     </div>
                   </div>
                 </div>
               ))
             ) : (
-              <div className="p-12 text-center bg-slate-50 rounded-[40px] border-2 border-dashed border-slate-200">
-                <Briefcase className="w-16 h-16 text-slate-200 mx-auto mb-6" />
-                <h3 className="text-xl font-bold text-slate-900 mb-2">No active job listings</h3>
-                <p className="text-slate-500 mb-8 max-w-sm mx-auto">Start recruiting by posting your first role with the optional Priority Challenge Fee.</p>
-                <Link to="/recruiter/post-job">
-                  <button className="px-8 py-3.5 bg-emerald-600 text-white rounded-2xl font-bold hover:bg-emerald-700 transition-all">Create Job Post</button>
+              <div className="py-8 text-center bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
+                <Briefcase className="w-10 h-10 text-gray-200 mx-auto mb-3" />
+                <h3 className="text-sm font-bold text-gray-900 mb-1">No active job listings</h3>
+                <Link to="/recruiter/post-job" className="inline-block text-xs px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold hover:bg-emerald-700 transition-all">
+                  Create Job Post
                 </Link>
               </div>
             )}
@@ -188,68 +201,49 @@ const RecruiterDashboard: React.FC = () => {
         </div>
 
         {/* Sidebar Components */}
-        <div className="lg:col-span-4 space-y-10">
-          <div className="bg-slate-900 text-white rounded-[40px] p-10 relative overflow-hidden group shadow-2xl shadow-slate-900/10">
-            <div className="relative z-10">
-              <div className="flex items-center gap-3 mb-8">
-                <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center border border-white/10 shadow-sm"><Users className="w-6 h-6 text-blue-500" /></div>
-                <h3 className="font-bold text-xl">Talent Discovery</h3>
-              </div>
-              <p className="text-slate-400 text-base leading-relaxed mb-10 font-medium">Identify top candidates across all your live roles in one unified view. Priority candidates are automatically surfaced first.</p>
-              
-              <div className="space-y-4 mb-12">
-                {[
-                  { icon: <UserCheck className="w-4 h-4" />, label: "Shortlisted Tracking" },
-                  { icon: <FileText className="w-4 h-4" />, label: "Resume Analysis" },
-                  { icon: <SearchCheck className="w-4 h-4" />, text: "Direct Outreach" }
-                ].map((item, i) => (
-                  <div key={i} className="flex items-center gap-4 text-sm font-bold text-slate-300">
-                    <div className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
-                    <span>{item.label}</span>
-                  </div>
-                ))}
-              </div>
-              
-              <Link to="/recruiter/candidates">
-                <button className="w-full py-4.5 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-all flex items-center justify-center gap-3 active:scale-95 shadow-xl shadow-blue-900/20">
-                  Browse Candidates <ChevronRight className="w-5 h-5" />
-                </button>
-              </Link>
+        <div className="lg:col-span-4 space-y-4 flex flex-col min-h-0">
+          <div className="bg-slate-900 text-white rounded-xl p-4 flex-shrink-0">
+            <div className="flex items-center gap-2 mb-3">
+              <Users className="w-4 h-4 text-blue-400" />
+              <h3 className="font-bold text-sm">Talent Discovery</h3>
             </div>
-            <div className="absolute -bottom-10 -left-10 w-48 h-48 bg-blue-500/10 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700" />
+            <p className="text-slate-400 text-xs leading-relaxed mb-4">Identify top candidates across all your live roles in one unified view.</p>
+            <Link to="/recruiter/candidates" className="w-full py-2 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 transition-all flex items-center justify-center gap-2">
+              Browse Talent <ChevronRight className="w-3.5 h-3.5" />
+            </Link>
           </div>
 
-          <div className="bg-white border border-slate-100 rounded-[40px] p-8 shadow-sm">
-            <div className="flex items-center justify-between mb-8 pb-4 border-b border-slate-50">
-              <div className="flex items-center gap-3">
-                <Calendar className="w-5 h-5 text-slate-400" />
-                <h3 className="text-xs font-bold text-slate-900 uppercase tracking-widest leading-none">Interviews</h3>
+          <div className="bg-white border border-gray-200 rounded-xl p-3 flex-1 flex flex-col min-h-0">
+            <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-50">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-3.5 h-3.5 text-gray-400" />
+                <h3 className="text-xs font-bold text-gray-900 uppercase tracking-widest">Interviews</h3>
               </div>
-              <Link to="/recruiter/applications" className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest hover:underline">View All</Link>
+              <Link to="/recruiter/applications" className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest hover:underline">All</Link>
             </div>
-            {loading ? (
-              [1, 2].map(i => <div key={i} className="h-20 bg-slate-50 rounded-2xl mb-3 animate-pulse" />)
-            ) : upcomingInterviews.length > 0 ? (
-              <div className="space-y-4">
-                {upcomingInterviews.map(app => (
-                  <Link key={app._id} to={`/recruiter/jobs/${app.job?._id}/applications`}>
-                    <div className="p-5 bg-slate-50 border border-slate-100 rounded-[28px] hover:bg-emerald-50 hover:border-emerald-100 transition-all group">
-                      <p className="text-sm font-bold text-slate-900 mb-2 truncate group-hover:text-emerald-900">{app.candidate?.name || 'Anonymous'}</p>
-                      <div className="flex items-center justify-between gap-3 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                        <span className="truncate max-w-[80px]">{app.job?.title}</span>
-                        <span className="text-blue-500">{format(new Date(app.interview?.scheduledAt || ''), 'MMM dd · HH:mm')}</span>
+            
+            <div className="space-y-2 overflow-y-auto pr-1">
+              {loading ? (
+                [1, 2].map(i => <div key={`interview-skeleton-${i}`} className="h-14 bg-gray-50 rounded-lg animate-pulse" />)
+              ) : upcomingInterviews.length > 0 ? (
+                upcomingInterviews.map(app => (
+                  <Link key={app._id} to={`/recruiter/jobs/${app.job?._id}/applications`} className="block">
+                    <div className="p-2.5 bg-gray-50 border border-gray-100 rounded-lg hover:bg-emerald-50 hover:border-emerald-100 transition-all group">
+                      <p className="text-xs font-bold text-gray-900 mb-1 truncate group-hover:text-emerald-900">{app.candidate?.name || 'Anonymous'}</p>
+                      <div className="flex items-center justify-between gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                        <span className="truncate max-w-[100px]">{app.job?.title}</span>
+                        <span className="text-blue-500 flex-shrink-0">{format(new Date(app.interview?.scheduledAt || ''), 'MMM dd')}</span>
                       </div>
                     </div>
                   </Link>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-6">
-                <Clock className="w-10 h-10 text-slate-200 mx-auto mb-4" />
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">No pending interviews</p>
-                <p className="text-[10px] text-slate-400 leading-tight">Shortlist candidates to start scheduling sessions.</p>
-              </div>
-            )}
+                ))
+              ) : (
+                <div className="text-center py-4">
+                  <Clock className="w-8 h-8 text-gray-200 mx-auto mb-2" />
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">No pending interviews</p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

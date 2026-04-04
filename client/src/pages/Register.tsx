@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { 
-  User, Building2, Eye, EyeOff, Mail, Lock, UserPlus, 
+  User, Building, Eye, EyeOff, Mail, Lock, UserPlus, 
   Briefcase, GraduationCap, Calendar, Zap, CheckCircle, 
-  ShieldCheck, Sparkles, Loader2
+  ShieldCheck, Sparkles, Loader2, AlertCircle
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
@@ -45,16 +45,17 @@ function validateYear(v: string, role: Role, status: string) {
 }
 
 // ─── Password strength ───────────────────────────────────────────────────────
-function getStrength(pwd: string): { score: 0|1|2|3; label: string } {
-  if (!pwd || pwd.length < 6) return { score: 0, label: 'Weak' };
+function getStrength(pwd: string): { level: 'weak' | 'medium' | 'strong'; score: number } {
+  if (!pwd || pwd.length < 6) return { level: 'weak', score: 0 };
   let score = 0;
   if (pwd.length >= 8) score++;
   if (/[A-Z]/.test(pwd)) score++;
   if (/[0-9]/.test(pwd)) score++;
   if (/[^A-Za-z0-9]/.test(pwd)) score++;
-  if (score >= 3) return { score: 3, label: 'Strong' };
-  if (score >= 2) return { score: 2, label: 'Medium' };
-  return { score: 1, label: 'Weak' };
+  
+  if (score >= 3) return { level: 'strong', score: 3 };
+  if (score >= 2) return { level: 'medium', score: 2 };
+  return { level: 'weak', score: 1 };
 }
 
 const Register: React.FC = () => {
@@ -63,60 +64,63 @@ const Register: React.FC = () => {
   const [name, setName]               = useState('');
   const [email, setEmail]             = useState(preEmail);
   const [password, setPassword]       = useState('');
-  const [confirmPassword, setConfirm] = useState('');
-  const [showPassword, setShowPwd]    = useState(false);
-  const [selectedRole, setRole]       = useState<Role>('candidate');
-  const [terms, setTerms]             = useState(false);
-  const [isLoading, setIsLoading]     = useState(false);
-  const [company, setCompany]         = useState('');
-  const [dateOfBirth, setDob]         = useState('');
-  const [gender, setGender]           = useState('');
-  const [qualification, setQual]      = useState('');
-  const [stream, setStream]           = useState('');
-  const [graduationStatus, setGrad]   = useState('');
-  const [passedOutYear, setYear]      = useState('');
-  const [touched, setTouched]         = useState<Touched>({ email: !!preEmail });
-  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm]   = useState(false);
+  const [role, setRole]                 = useState<Role>('candidate');
+  const [agreedTerms, setAgreedTerms]   = useState(false);
+  const [isLoading, setIsLoading]       = useState(false);
+  const [company, setCompany]           = useState('');
+  const [dob, setDob]                   = useState('');
+  const [gender, setGender]             = useState('');
+  const [qualification, setQualification] = useState('');
+  const [stream, setStream]             = useState('');
+  const [gradStatus, setGradStatus]     = useState('');
+  const [passedOutYear, setPassedOutYear] = useState('');
+  const [touched, setTouched]           = useState<Touched>({ email: !!preEmail });
+  const [fieldErrors, setFieldErrors]   = useState<FieldErrors>({});
 
   const navigate   = useNavigate();
   const strength   = getStrength(password);
 
-  const validate = (): FieldErrors => ({
+  const validateAll = (): FieldErrors => ({
     name:            validateName(name),
     email:           validateEmail(email),
     password:        validatePassword(password),
     confirmPassword: validateConfirm(confirmPassword, password),
-    company:         validateCompany(company, selectedRole),
-    dateOfBirth:     validateDOB(dateOfBirth, selectedRole),
-    gender:          selectedRole === 'candidate' && !gender ? 'Gender is required' : undefined,
-    qualification:   validateSelect(qualification, selectedRole, 'Qualification'),
-    stream:          validateSelect(stream, selectedRole, 'Stream'),
-    graduationStatus: validateSelect(graduationStatus, selectedRole, 'Graduation Status'),
-    passedOutYear:   validateYear(passedOutYear, selectedRole, graduationStatus),
-    terms:           terms ? undefined : 'You must accept the terms',
+    company:         validateCompany(company, role),
+    dateOfBirth:     validateDOB(dob, role),
+    gender:          role === 'candidate' && !gender ? 'Gender is required' : undefined,
+    qualification:   validateSelect(qualification, role, 'Qualification'),
+    stream:          validateSelect(stream, role, 'Stream'),
+    graduationStatus: validateSelect(gradStatus, role, 'Graduation Status'),
+    passedOutYear:   validateYear(passedOutYear, role, gradStatus),
+    terms:           agreedTerms ? undefined : 'You must accept the terms',
   });
+
+  const clearErrors = () => {
+    setFieldErrors({});
+  };
 
   const handleBlur = (field: keyof FieldErrors) => {
     setTouched(prev => ({ ...prev, [field]: true }));
-    const errs = validate();
+    const errs = validateAll();
     setFieldErrors(prev => ({ ...prev, [field]: errs[field] }));
   };
-
-  const showError = (field: keyof FieldErrors) => touched[field] ? fieldErrors[field] : undefined;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const allTouched: Touched = { name: true, email: true, password: true, confirmPassword: true, terms: true, company: true, dateOfBirth: true, qualification: true, stream: true, graduationStatus: true, passedOutYear: true, gender: true };
     setTouched(allTouched);
-    const errs = validate();
+    const errs = validateAll();
     setFieldErrors(errs);
     if (Object.values(errs).some(Boolean)) return;
 
     setIsLoading(true);
     try {
       await api.post('/auth/register', { 
-        name, email, password, role: selectedRole,
-        company, dateOfBirth, gender, qualification, stream, graduationStatus, passedOutYear
+        name, email, password, role,
+        company, dateOfBirth: dob, gender, qualification, stream, graduationStatus: gradStatus, passedOutYear
       });
       toast.success('Account created! Check your email for a verification code.');
       navigate('/verify-otp', { state: { email, name } });
@@ -128,239 +132,327 @@ const Register: React.FC = () => {
     }
   };
 
-  const barColors = ['bg-red-400', 'bg-yellow-400', 'bg-green-500'];
-
   return (
-    <div className="min-h-screen grid lg:grid-cols-2">
-      {/* Left Section */}
-      <div className="hidden lg:flex flex-col justify-between p-16 hero-gradient relative overflow-hidden">
-        <div className="absolute top-0 right-0 -mr-24 -mt-24 w-96 h-96 bg-emerald-500/10 blur-[100px] rounded-full"></div>
-        <div className="absolute bottom-0 left-0 -ml-24 -mb-24 w-96 h-96 bg-white/5 blur-[100px] rounded-full"></div>
-        
-        <div className="absolute inset-0 opacity-10 pointer-events-none">
-          <svg width="100%" height="100%">
-            <pattern id="reg-dots" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
-              <circle cx="2" cy="2" r="1.5" fill="white" />
-            </pattern>
-            <rect width="100%" height="100%" fill="url(#reg-dots)" />
-          </svg>
-        </div>
-
-        <div className="relative z-10">
-          <Logo variant="light" className="mb-16 scale-125 origin-left" />
-          <div className="max-w-md">
-            <h1 className="text-4xl md:text-5xl font-bold heading-font text-white mb-6 leading-tight">
-              Join <span className="text-emerald-400">TrustHire</span> Today
-            </h1>
-            <p className="text-xl text-emerald-50/80 body-font mb-12">
-              The world's most trusted job portal. Experience the future of hiring with our commitment-first approach.
-            </p>
-            <div className="space-y-6">
-              {[
-                { icon: <Briefcase className="w-5 h-5" />, text: "Access premium job listings" },
-                { icon: <ShieldCheck className="w-5 h-5" />, text: "Stand out with Challenge Fees" },
-                { icon: <Sparkles className="w-5 h-5" />, text: "Get prioritized by top recruiters" }
-              ].map((item, i) => (
-                <div key={i} className="flex items-center gap-4 text-emerald-100/90 font-medium animate-fadeUp" style={{ animationDelay: `${(i+1)*200}ms` }}>
-                  <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center border border-white/10">{item.icon}</div>
-                  <span>{item.text}</span>
-                </div>
-              ))}
-            </div>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-6">
+      <div className="w-full max-w-md animate-fadeUp">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 md:p-5 w-full max-h-[95vh] overflow-y-auto">
+          {/* Logo + Heading */}
+          <div className="flex justify-center mb-2">
+            <Logo className="scale-90" />
           </div>
-        </div>
-        <p className="relative z-10 text-emerald-50/40 text-sm font-medium">© {new Date().getFullYear()} TrustHire. Built for progress.</p>
-      </div>
+          <h2 className="text-lg font-bold text-center text-gray-900 mb-1">
+            Create your account
+          </h2>
+          <p className="text-xs text-center text-gray-500 mb-3">
+            Join TrustHire and find your next opportunity
+          </p>
 
-      {/* Right Section */}
-      <div className="flex items-center justify-center p-8 md:p-16 bg-white overflow-y-auto">
-        <div className="w-full max-w-lg animate-fadeUp py-12">
-          <div className="lg:hidden mb-12"><Logo variant="dark" /></div>
-          <div className="mb-10">
-            <h2 className="text-3xl font-bold text-slate-900 heading-font mb-2">Create Account</h2>
-            <p className="text-slate-500 font-medium">Join thousands of professionals already on TrustHire.</p>
+          {/* Role selector */}
+          <div className="grid grid-cols-2 gap-2 mb-3">
+            <button type="button"
+              onClick={() => setRole('candidate')}
+              className={`p-2.5 rounded-md border text-center transition
+                ${role === 'candidate'
+                  ? 'border-[#1B4D3E] bg-green-50'
+                  : 'border-gray-200 hover:border-gray-300'}`}>
+              <User className="w-5 h-5 mx-auto mb-1 text-gray-600" />
+              <p className="text-xs font-medium text-gray-900">Job Seeker</p>
+            </button>
+            <button type="button"
+              onClick={() => setRole('recruiter')}
+              className={`p-2.5 rounded-md border text-center transition
+                ${role === 'recruiter'
+                  ? 'border-[#2563EB] bg-blue-50'
+                  : 'border-gray-200 hover:border-gray-300'}`}>
+              <Building className="w-5 h-5 mx-auto mb-1 text-gray-600" />
+              <p className="text-xs font-medium text-gray-900">Recruiter</p>
+            </button>
           </div>
 
-          <div className="mb-8">
-            <div className="grid grid-cols-2 gap-4">
-              {(['candidate', 'recruiter'] as Role[]).map(role => (
-                <button
-                  key={role}
-                  type="button"
-                  onClick={() => setRole(role)}
-                  className={`p-4 rounded-[24px] border-2 transition-all flex flex-col items-center text-center ${
-                    selectedRole === role ? 'border-emerald-600 bg-emerald-50' : 'border-slate-100 hover:border-emerald-200'
-                  }`}
-                >
-                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-3 transition-colors ${selectedRole === role ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-400'}`}>
-                    {role === 'candidate' ? <User className="w-6 h-6" /> : <Building2 className="w-6 h-6" />}
-                  </div>
-                  <p className={`font-bold capitalize ${selectedRole === role ? 'text-emerald-900' : 'text-slate-600'}`}>
-                    {role === 'candidate' ? 'Job Seeker' : 'Recruiter'}
-                  </p>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <form onSubmit={handleSubmit} noValidate className="grid gap-6">
-            <div className="grid sm:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <label className="flex items-center gap-2 text-sm font-bold text-slate-700"><User className="w-4 h-4 text-emerald-500" /> Full Name</label>
+          <form onSubmit={handleSubmit} noValidate>
+            {/* Basic Fields Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-3 gap-y-0">
+              {/* Full Name */}
+              <div className="mb-2.5">
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Full Name <span className="text-red-500">*</span>
+                </label>
                 <input
-                  type="text" placeholder="John Doe" value={name} disabled={isLoading}
-                  onChange={e => setName(e.target.value)} onBlur={() => handleBlur('name')}
-                  className={`w-full px-5 py-3.5 bg-slate-50 border rounded-2xl outline-none transition-all ${showError('name') ? 'border-red-500 bg-red-50/20' : 'border-slate-100 focus:border-emerald-500 focus:bg-white'}`}
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  onBlur={() => handleBlur('name')}
+                  className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md outline-none focus:border-[#1B4D3E] focus:ring-1 focus:ring-[#1B4D3E] text-gray-900"
+                  placeholder="John Doe"
                 />
-                {showError('name') && <p className="text-red-500 text-xs font-bold animate-fadeIn">{showError('name')}</p>}
+                {touched.name && fieldErrors.name && (
+                  <p className="text-red-500 text-[10px] mt-0.5">{fieldErrors.name}</p>
+                )}
               </div>
 
-              <div className="space-y-2">
-                <label className="flex items-center gap-2 text-sm font-bold text-slate-700"><Mail className="w-4 h-4 text-emerald-500" /> Email</label>
+              {/* Email */}
+              <div className="mb-2.5">
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Email <span className="text-red-500">*</span>
+                </label>
                 <input
-                  type="email" placeholder="you@example.com" value={email} disabled={isLoading}
-                  onChange={e => setEmail(e.target.value)} onBlur={() => handleBlur('email')}
-                  className={`w-full px-5 py-3.5 bg-slate-50 border rounded-2xl outline-none transition-all ${showError('email') ? 'border-red-500 bg-red-50/20' : 'border-slate-100 focus:border-emerald-500 focus:bg-white'}`}
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  onBlur={() => handleBlur('email')}
+                  className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md outline-none focus:border-[#1B4D3E] focus:ring-1 focus:ring-[#1B4D3E] text-gray-900"
+                  placeholder="you@example.com"
                 />
-                {showError('email') && <p className="text-red-500 text-xs font-bold animate-fadeIn">{showError('email')}</p>}
+                {touched.email && fieldErrors.email && (
+                  <p className="text-red-500 text-[10px] mt-0.5">{fieldErrors.email}</p>
+                )}
               </div>
-            </div>
 
-            {selectedRole === 'recruiter' ? (
-              <div className="space-y-2">
-                <label className="flex items-center gap-2 text-sm font-bold text-slate-700"><Building2 className="w-4 h-4 text-emerald-500" /> Company Name</label>
-                <input
-                  type="text" placeholder="Acme Corp" value={company} disabled={isLoading}
-                  onChange={e => setCompany(e.target.value)} onBlur={() => handleBlur('company')}
-                  className={`w-full px-5 py-3.5 bg-slate-50 border rounded-2xl outline-none transition-all ${showError('company') ? 'border-red-500 bg-red-50/20' : 'border-slate-100 focus:border-emerald-500'}`}
-                />
-                {showError('company') && <p className="text-red-500 text-xs font-bold">{showError('company')}</p>}
-              </div>
-            ) : (
-              <>
-                <div className="grid sm:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="flex items-center gap-2 text-sm font-bold text-slate-700"><Calendar className="w-4 h-4 text-emerald-500" /> Date of Birth</label>
-                    <input
-                      type="date" value={dateOfBirth} disabled={isLoading}
-                      onChange={e => setDob(e.target.value)} onBlur={() => handleBlur('dateOfBirth')}
-                      className={`w-full px-5 py-3.5 bg-slate-50 border rounded-2xl outline-none transition-all ${showError('dateOfBirth') ? 'border-red-500 bg-red-50/20' : 'border-slate-100 focus:border-emerald-500'}`}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="flex items-center gap-2 text-sm font-bold text-slate-700"><User className="w-4 h-4 text-emerald-500" /> Gender</label>
-                    <div className="flex gap-4 p-3 bg-slate-50 border border-slate-100 rounded-2xl">
-                      {['Male', 'Female'].map(g => (
-                        <label key={g} className="flex items-center gap-2 cursor-pointer group">
-                          <input
-                            type="radio" name="gender" value={g} checked={gender === g}
-                            onChange={() => setGender(g)} disabled={isLoading}
-                            className="hidden peer"
-                          />
-                          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${gender === g ? 'border-emerald-600 bg-emerald-100' : 'border-slate-300 group-hover:border-emerald-300'}`}>
-                            {gender === g && <div className="w-2.5 h-2.5 rounded-full bg-emerald-600 animate-scale" />}
-                          </div>
-                          <span className={`text-sm font-bold transition-colors ${gender === g ? 'text-emerald-900' : 'text-slate-600'}`}>{g}</span>
-                        </label>
-                      ))}
-                    </div>
-                    {showError('gender') && <p className="text-red-500 text-[10px] font-bold uppercase">{showError('gender')}</p>}
-                  </div>
-                </div>
-
-                <div className="grid sm:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="flex items-center gap-2 text-sm font-bold text-slate-700"><GraduationCap className="w-4 h-4 text-emerald-500" /> Qualification</label>
-                    <select
-                      value={qualification} disabled={isLoading}
-                      onChange={e => setQual(e.target.value)} onBlur={() => handleBlur('qualification')}
-                      className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:border-emerald-500 transition-all font-medium appearance-none"
-                    >
-                      <option value="">Select</option>
-                      {["Diploma", "Bachelor's", "Master's", "PhD"].map(q => <option key={q} value={q}>{q}</option>)}
-                    </select>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="flex items-center gap-2 text-sm font-bold text-slate-700"><Zap className="w-4 h-4 text-emerald-500" /> Stream</label>
-                    <input
-                      type="text" placeholder="e.g. Computer Science" value={stream} disabled={isLoading}
-                      onChange={e => setStream(e.target.value)} onBlur={() => handleBlur('stream')}
-                      className={`w-full px-5 py-3.5 bg-slate-50 border rounded-2xl outline-none transition-all ${showError('stream') ? 'border-red-500' : 'border-slate-100 focus:border-emerald-500'}`}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid sm:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="flex items-center gap-2 text-sm font-bold text-slate-700"><CheckCircle className="w-4 h-4 text-emerald-500" /> Status</label>
-                    <select
-                      value={graduationStatus} disabled={isLoading}
-                      onChange={e => setGrad(e.target.value)} onBlur={() => handleBlur('graduationStatus')}
-                      className={`w-full px-5 py-3.5 bg-slate-50 border rounded-2xl outline-none transition-all appearance-none ${showError('graduationStatus') ? 'border-red-500' : 'border-slate-100 focus:border-emerald-500'}`}
-                    >
-                      <option value="">Select</option>
-                      {["Graduated", "Currently Studying"].map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="flex items-center gap-2 text-sm font-bold text-slate-700"><Calendar className="w-4 h-4 text-emerald-500" /> Passing Year</label>
-                    <input
-                      type="number" placeholder="e.g. 2024" value={passedOutYear} disabled={isLoading}
-                      onChange={e => setYear(e.target.value)} onBlur={() => handleBlur('passedOutYear')}
-                      className={`w-full px-5 py-3.5 bg-slate-50 border rounded-2xl outline-none transition-all ${showError('passedOutYear') ? 'border-red-500' : 'border-slate-100 focus:border-emerald-500'}`}
-                    />
-                  </div>
-                </div>
-              </>
-            )}
-
-            <div className="grid sm:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <label className="flex items-center gap-2 text-sm font-bold text-slate-700"><Lock className="w-4 h-4 text-emerald-500" /> Password</label>
+              {/* Password */}
+              <div className="mb-2.5">
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Password <span className="text-red-500">*</span>
+                </label>
                 <div className="relative">
                   <input
-                    type={showPassword ? 'text' : 'password'} value={password} disabled={isLoading}
-                    onChange={e => setPassword(e.target.value)} onBlur={() => handleBlur('password')}
-                    className={`w-full px-5 py-3.5 bg-slate-50 border rounded-2xl outline-none transition-all pr-12 focus:border-emerald-500`}
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    onBlur={() => handleBlur('password')}
+                    className="w-full px-3 pr-8 py-1.5 text-sm border border-gray-300 rounded-md outline-none focus:border-[#1B4D3E] focus:ring-1 focus:ring-[#1B4D3E] text-gray-900"
+                    placeholder="••••••••"
                   />
-                  <button type="button" onClick={() => setShowPwd(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">
-                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  <button type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400">
+                    {showPassword ?
+                      <EyeOff className="w-3.5 h-3.5" /> :
+                      <Eye className="w-3.5 h-3.5" />}
                   </button>
                 </div>
-                {password.length > 0 && (
-                  <div className="flex gap-1 mt-2">
-                    {[0, 1, 2].map(i => <div key={i} className={`h-1.5 flex-1 rounded-full ${strength.score > i ? barColors[Math.min(strength.score-1,2)] : 'bg-slate-100'}`} />)}
+                {touched.password && fieldErrors.password && (
+                  <p className="text-red-500 text-[10px] mt-0.5">{fieldErrors.password}</p>
+                )}
+                {/* Password strength — compact */}
+                {password && (
+                  <div className="flex gap-1 mt-1">
+                    {[1, 2, 3].map(i => (
+                      <div key={i} className={`h-0.5 flex-1 rounded-full
+                        ${strength.level === 'weak' && i <= 1 ? 'bg-red-400' :
+                          strength.level === 'medium' && i <= 2 ? 'bg-yellow-400' :
+                          strength.level === 'strong' && i <= 3 ? 'bg-green-400' :
+                          'bg-gray-200'}`} />
+                    ))}
                   </div>
                 )}
               </div>
-              <div className="space-y-2">
-                <label className="flex items-center gap-2 text-sm font-bold text-slate-700"><Lock className="w-4 h-4 text-emerald-500" /> Confirm</label>
-                <input
-                  type={showPassword ? 'text' : 'password'} value={confirmPassword} disabled={isLoading}
-                  onChange={e => setConfirm(e.target.value)} onBlur={() => handleBlur('confirmPassword')}
-                  className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:border-emerald-500"
-                />
+
+              {/* Confirm Password */}
+              <div className="mb-2.5">
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Confirm Password <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type={showConfirm ? 'text' : 'password'}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    onBlur={() => handleBlur('confirmPassword')}
+                    className="w-full px-3 pr-8 py-1.5 text-sm border border-gray-300 rounded-md outline-none focus:border-[#1B4D3E] focus:ring-1 focus:ring-[#1B4D3E] text-gray-900"
+                    placeholder="••••••••"
+                  />
+                  <button type="button"
+                    onClick={() => setShowConfirm(!showConfirm)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400">
+                    {showConfirm ?
+                      <EyeOff className="w-3.5 h-3.5" /> :
+                      <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+                {touched.confirmPassword && fieldErrors.confirmPassword && (
+                  <p className="text-red-500 text-[10px] mt-0.5">{fieldErrors.confirmPassword}</p>
+                )}
               </div>
             </div>
 
-            <div className="flex items-start gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-              <input type="checkbox" checked={terms} onChange={e => setTerms(e.target.checked)} className="mt-1 accent-emerald-600 h-4 w-4" />
-              <label className="text-xs text-slate-500 leading-relaxed font-medium">
-                I agree to the <Link to="/terms" className="text-emerald-600 font-bold hover:underline">Terms of Service</Link> and <Link to="/privacy" className="text-emerald-600 font-bold hover:underline">Privacy Policy</Link>.
-              </label>
+            {/* Role Specific Fields */}
+            {role === 'candidate' ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-3 gap-y-0">
+                <div className="mb-2.5">
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Date of Birth <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={dob}
+                    onChange={(e) => setDob(e.target.value)}
+                    onBlur={() => handleBlur('dateOfBirth')}
+                    className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md outline-none focus:border-[#1B4D3E] focus:ring-1 focus:ring-[#1B4D3E] text-gray-900"
+                  />
+                  {touched.dateOfBirth && fieldErrors.dateOfBirth && (
+                    <p className="text-red-500 text-[10px] mt-0.5">{fieldErrors.dateOfBirth}</p>
+                  )}
+                </div>
+
+                <div className="mb-2.5">
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Gender <span className="text-red-500">*</span>
+                  </label>
+                  <div className="flex gap-3 py-1.5 px-3 border border-gray-300 rounded-md bg-white">
+                    {['Male', 'Female'].map(g => (
+                      <label key={g} className="flex items-center gap-1.5 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="gender"
+                          value={g}
+                          checked={gender === g}
+                          onChange={() => setGender(g)}
+                          className="w-3 h-3 text-[#1B4D3E]"
+                        />
+                        <span className="text-xs text-gray-700">{g}</span>
+                      </label>
+                    ))}
+                  </div>
+                  {touched.gender && fieldErrors.gender && (
+                    <p className="text-red-500 text-[10px] mt-0.5">{fieldErrors.gender}</p>
+                  )}
+                </div>
+
+                <div className="mb-2.5">
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Qualification <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={qualification}
+                    onChange={(e) => setQualification(e.target.value)}
+                    onBlur={() => handleBlur('qualification')}
+                    className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md outline-none focus:border-[#1B4D3E] focus:ring-1 focus:ring-[#1B4D3E] text-gray-900 bg-white"
+                  >
+                    <option value="">Select</option>
+                    <option>Diploma</option>
+                    <option>Bachelor's</option>
+                    <option>Master's</option>
+                    <option>PhD</option>
+                    <option>Other</option>
+                  </select>
+                  {touched.qualification && fieldErrors.qualification && (
+                    <p className="text-red-500 text-[10px] mt-0.5">{fieldErrors.qualification}</p>
+                  )}
+                </div>
+
+                <div className="mb-2.5">
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Stream / Field
+                  </label>
+                  <input
+                    type="text"
+                    value={stream}
+                    onChange={(e) => setStream(e.target.value)}
+                    className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md outline-none focus:border-[#1B4D3E] focus:ring-1 focus:ring-[#1B4D3E] text-gray-900"
+                    placeholder="Computer Science"
+                  />
+                </div>
+
+                <div className="mb-2.5">
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Status
+                  </label>
+                  <select
+                    value={gradStatus}
+                    onChange={(e) => setGradStatus(e.target.value)}
+                    className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md outline-none focus:border-[#1B4D3E] focus:ring-1 focus:ring-[#1B4D3E] text-gray-900 bg-white"
+                  >
+                    <option value="">Select</option>
+                    <option>Currently Studying</option>
+                    <option>Graduated</option>
+                  </select>
+                </div>
+
+                {gradStatus === 'Graduated' && (
+                  <div className="mb-2.5">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Passing Year
+                    </label>
+                    <input
+                      type="number"
+                      value={passedOutYear}
+                      onChange={(e) => setPassedOutYear(e.target.value)}
+                      onBlur={() => handleBlur('passedOutYear')}
+                      className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md outline-none focus:border-[#1B4D3E] focus:ring-1 focus:ring-[#1B4D3E] text-gray-900"
+                      placeholder="2023"
+                    />
+                    {touched.passedOutYear && fieldErrors.passedOutYear && (
+                      <p className="text-red-500 text-[10px] mt-0.5">{fieldErrors.passedOutYear}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="mb-2.5">
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Company Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={company}
+                  onChange={(e) => setCompany(e.target.value)}
+                  onBlur={() => handleBlur('company')}
+                  className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md outline-none focus:border-[#1B4D3E] focus:ring-1 focus:ring-[#1B4D3E] text-gray-900"
+                  placeholder="Your company name"
+                />
+                {touched.company && fieldErrors.company && (
+                  <p className="text-red-500 text-[10px] mt-0.5">{fieldErrors.company}</p>
+                )}
+              </div>
+            )}
+
+            {/* Terms checkbox */}
+            <div className="flex items-start gap-2 mb-3 mt-1">
+              <input
+                type="checkbox"
+                checked={agreedTerms}
+                onChange={(e) => setAgreedTerms(e.target.checked)}
+                className="mt-0.5 w-3.5 h-3.5 rounded border-gray-300 text-[#1B4D3E] focus:ring-[#1B4D3E]"
+              />
+              <div className="flex flex-col">
+                <p className="text-xs text-gray-500">
+                  I agree to the{' '}
+                  <Link to="/terms-of-service" className="text-[#1B4D3E] hover:underline font-medium">Terms</Link>
+                  {' '}and{' '}
+                  <Link to="/privacy-policy" className="text-[#1B4D3E] hover:underline font-medium">Privacy Policy</Link>
+                </p>
+                {touched.terms && fieldErrors.terms && (
+                  <p className="text-red-500 text-[10px] mt-0.5">{fieldErrors.terms}</p>
+                )}
+              </div>
             </div>
 
+            {/* Submit button */}
             <button
-              type="submit" disabled={isLoading}
-              className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/10 flex items-center justify-center gap-3 active:scale-95 disabled:opacity-50"
+              type="submit"
+              disabled={isLoading}
+              className="w-full py-2 text-sm font-medium bg-[#1B4D3E] text-white rounded-md hover:bg-[#0F3D2E] disabled:opacity-50 flex items-center justify-center gap-2 transition"
             >
-              {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><UserPlus className="w-5 h-5" /> Create Free Account</>}
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  Creating account...
+                </>
+              ) : (
+                'Create Account'
+              )}
             </button>
           </form>
 
-          <footer className="mt-10 pt-8 border-t border-slate-50 text-center font-medium">
-            <p className="text-slate-500">Already a member? <Link to="/login" className="text-emerald-600 font-bold hover:underline">Sign In Instead</Link></p>
-          </footer>
+          {/* Login link */}
+          <div className="mt-2.5 text-center">
+            <p className="text-xs text-gray-500">
+              Already have an account?{' '}
+              <Link to="/login" className="text-[#1B4D3E] font-medium hover:underline">
+                Sign In
+              </Link>
+            </p>
+          </div>
         </div>
       </div>
     </div>

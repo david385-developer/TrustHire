@@ -44,3 +44,5 @@ out2.txt
 tsc_out.txt
 vite_out.txt
 typecheck.log
+tsc_output.txt
+client/tsc_output.txt

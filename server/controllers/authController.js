@@ -407,3 +407,98 @@ exports.updateProfile = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+// ─── SETTINGS ENDPOINTS ────────────────────────────────────────────────────────
+const Application = require('../models/Application');
+const Notification = require('../models/Notification');
+const PushSubscription = require('../models/PushSubscription');
+
+exports.updateNotificationPrefs = async (req, res) => {
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { $set: { notificationPreferences: req.body.notificationPreferences } },
+      { returnDocument: 'after', runValidators: true }
+    ).select('-password -otp');
+    res.json({ success: true, user });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.updatePrivacySettings = async (req, res) => {
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { $set: { privacySettings: req.body.privacySettings } },
+      { returnDocument: 'after', runValidators: true }
+    ).select('-password -otp');
+    res.json({ success: true, user });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.updatePreferences = async (req, res) => {
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { $set: { preferences: req.body.preferences } },
+      { returnDocument: 'after', runValidators: true }
+    ).select('-password -otp');
+    res.json({ success: true, user });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const user = await User.findById(req.user.id);
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ success: false, message: 'Current password is incorrect' });
+    }
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(newPassword, salt);
+    await user.save();
+    res.json({ success: true, message: 'Password updated successfully' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.deleteAccount = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    await Application.deleteMany({ candidateId: userId });
+    await Notification.deleteMany({ userId });
+    await PushSubscription.deleteMany({ userId });
+    await User.findByIdAndDelete(userId);
+    res.json({ success: true, message: 'Account deleted' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.exportData = async (req, res) => {
+  try {
+    const userProfile = await User.findById(req.user.id).select('-password -otp');
+    const applications = await Application.find({ candidateId: req.user.id });
+    const notifications = await Notification.find({ userId: req.user.id });
+    
+    const exportBundle = {
+      profile: userProfile,
+      applications,
+      notifications,
+      exportedAt: new Date().toISOString()
+    };
+
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', 'attachment; filename=trusthire-my-data.json');
+    res.send(JSON.stringify(exportBundle, null, 2));
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};

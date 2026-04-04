@@ -68,6 +68,35 @@ const UserSchema = new mongoose.Schema({
   designation: {
     type: String
   },
+  
+  // Settings & Preferences
+  timezone: { type: String, default: "Asia/Kolkata (GMT+5:30)" },
+
+  notificationPreferences: {
+    applicationUpdates: { type: Boolean, default: true },
+    interviewReminders: { type: Boolean, default: true },
+    feeRefundAlerts: { type: Boolean, default: true },
+    marketingEmails: { type: Boolean, default: false },
+    pushNotifications: { type: Boolean, default: true }
+  },
+
+  privacySettings: {
+    profileVisibility: {
+      type: String,
+      enum: ['public', 'limited', 'private'],
+      default: 'limited'
+    },
+    showOnlineStatus: { type: Boolean, default: true },
+    showSalaryExpectation: { type: Boolean, default: true }
+  },
+
+  preferences: {
+    language: { type: String, default: "English (India)" },
+    region: { type: String, default: "India" },
+    dateFormat: { type: String, default: "DD/MM/YYYY" },
+    currency: { type: String, default: "INR" }
+  },
+
   profileCompleted: {
     type: Boolean,
     default: false

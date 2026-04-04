@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, AlertCircle, Loader2, Sparkles, ShieldCheck, Mail, Lock, ArrowRight } from 'lucide-react';
+import { Eye, EyeOff, AlertCircle, Loader2, Mail, Lock, ArrowRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
@@ -38,13 +38,22 @@ const Login: React.FC = () => {
   const { login }   = useAuth();
   const navigate    = useNavigate();
 
-  const handleBlur = (field: keyof FieldErrors) => {
-    setTouched(prev => ({ ...prev, [field]: true }));
-    const err = field === 'email' ? validateEmail(email) : validatePassword(password);
-    setFieldErrors(prev => ({ ...prev, [field]: err }));
+  const clearErrors = () => {
+    setFieldErrors({});
+    setGlobalError(null);
   };
 
-  const showError = (field: keyof FieldErrors) => touched[field] ? fieldErrors[field] : undefined;
+  const validateEmailField = () => {
+    const err = validateEmail(email);
+    setFieldErrors(prev => ({ ...prev, email: err }));
+    setTouched(prev => ({ ...prev, email: true }));
+  };
+
+  const validatePasswordField = () => {
+    const err = validatePassword(password);
+    setFieldErrors(prev => ({ ...prev, password: err }));
+    setTouched(prev => ({ ...prev, password: true }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -87,172 +96,134 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen grid lg:grid-cols-2">
-      {/* Left Section: Branding & Decorative */}
-      <div className="hidden lg:flex flex-col justify-between p-16 hero-gradient relative overflow-hidden">
-        <div className="absolute top-0 right-0 -mr-24 -mt-24 w-96 h-96 bg-emerald-500/10 blur-[100px] rounded-full"></div>
-        <div className="absolute bottom-0 left-0 -ml-24 -mb-24 w-96 h-96 bg-white/5 blur-[100px] rounded-full"></div>
-        
-        {/* Dotted lines pattern overlay using inline SVG */}
-        <div className="absolute inset-0 opacity-10 pointer-events-none">
-          <svg width="100%" height="100%">
-            <pattern id="dots" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
-              <circle cx="2" cy="2" r="1.5" fill="white" />
-            </pattern>
-            <rect width="100%" height="100%" fill="url(#dots)" />
-          </svg>
-        </div>
-
-        <div className="relative z-10">
-          <Logo variant="light" className="mb-16 scale-125 origin-left" />
-          
-          <div className="max-w-md">
-            <h1 className="text-4xl md:text-5xl font-bold heading-font text-white mb-6 leading-tight">
-              Welcome to <span className="text-emerald-400">TrustHire</span>
-            </h1>
-            <p className="text-xl text-emerald-50/80 body-font mb-12">
-              Your commitment is your strongest resume. Join the world's first trust-driven hiring ecosystem.
-            </p>
-            
-            <div className="space-y-6">
-              {[
-                { icon: <ShieldCheck className="w-5 h-5" />, text: "Verified commitment signals" },
-                { icon: <Sparkles className="w-5 h-5" />, text: "AI-free genuine matches" },
-                { icon: <ShieldCheck className="w-5 h-5" />, text: "Priority review guarantee" }
-              ].map((item, i) => (
-                <div key={i} className="flex items-center gap-4 text-emerald-100/90 font-medium animate-fadeUp" style={{ animationDelay: `${(i+1)*200}ms` }}>
-                  <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center border border-white/10">{item.icon}</div>
-                  <span>{item.text}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <p className="relative z-10 text-emerald-50/40 text-sm font-medium tracking-wide">
-          &copy; {new Date().getFullYear()} TrustHire Inc. Protected by Priority Shield.
-        </p>
-      </div>
-
-      {/* Right Section: Login Form */}
-      <div className="flex items-center justify-center p-8 md:p-16 bg-white">
-        <div className="w-full max-w-md animate-fadeUp">
-          <div className="lg:hidden mb-12">
-            <Logo variant="dark" className="scale-110 origin-left" />
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+      <div className="w-full max-w-sm animate-fadeUp">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5 w-full">
+          {/* Logo */}
+          <div className="flex justify-center mb-3">
+            <Logo className="scale-90" />
           </div>
 
-          <div className="mb-10">
-            <h2 className="text-3xl font-bold text-slate-900 heading-font mb-2">Sign In</h2>
-            <p className="text-slate-500 font-medium">Access your professional dashboard and search results.</p>
-          </div>
+          <h2 className="text-lg font-bold text-center text-gray-900 mb-1">
+            Welcome back
+          </h2>
+          <p className="text-xs text-center text-gray-500 mb-4">
+            Sign in to your account
+          </p>
 
           {/* Global Errors */}
           {globalError?.type === 'not_found' && (
-            <div className="mb-8 p-4 bg-red-50 border border-red-100 rounded-2xl flex items-start gap-3 animate-scaleIn">
-              <AlertCircle className="w-5 h-5 text-red-500 mt-0.5" />
+            <div className="mb-3 p-2.5 bg-red-50 border border-red-200 rounded-md flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
               <div>
-                <p className="text-red-900 font-bold text-sm">{globalError.message}</p>
-                <Link to="/register" state={{ email: globalError.email }} className="text-red-600 font-bold text-sm hover:underline flex items-center gap-1 mt-1">
-                  Create new account <ArrowRight className="w-3.5 h-3.5" />
+                <p className="text-red-900 font-bold text-xs">{globalError.message}</p>
+                <Link to="/register" state={{ email: globalError.email }} className="text-red-600 font-bold text-xs hover:underline flex items-center gap-1 mt-0.5">
+                  Create new account <ArrowRight className="w-3 h-3" />
                 </Link>
               </div>
             </div>
           )}
 
           {globalError?.type === 'server' && (
-            <div className="mb-8 p-4 bg-red-50 border border-red-100 rounded-2xl flex items-start gap-3 animate-scaleIn">
-              <AlertCircle className="w-5 h-5 text-red-500 mt-0.5" />
-              <p className="text-red-900 font-bold text-sm">{globalError.message}</p>
+            <div className="mb-3 p-2.5 bg-red-50 border border-red-200 rounded-md flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
+              <p className="text-red-900 font-bold text-xs">{globalError.message}</p>
             </div>
           )}
 
-          <form onSubmit={handleSubmit} noValidate className="space-y-6">
-            <div className="space-y-2">
-              <label className="flex items-center gap-2 text-sm font-bold text-slate-700">
-                <Mail className="w-4 h-4 text-emerald-500" /> Email Address
+          <form onSubmit={handleSubmit} noValidate>
+            {/* Email Field */}
+            <div className="mb-3">
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Email <span className="text-red-500">*</span>
               </label>
-              <input
-                id="login-email"
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                disabled={isLoading}
-                onChange={e => {setEmail(e.target.value); setGlobalError(null);}}
-                onBlur={() => handleBlur('email')}
-                className={`w-full px-5 py-3.5 bg-slate-50 border rounded-2xl outline-none transition-all font-medium placeholder:text-slate-400
-                  ${showError('email') ? 'border-red-500 bg-red-50/30' : 'border-slate-100 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/5'}`}
-              />
-              {showError('email') && (
-                <p className="text-red-500 text-xs font-bold flex items-center gap-1 animate-fadeIn">
-                  <AlertCircle className="w-3 h-3" /> {showError('email')}
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                <input
+                  type="email"
+                  value={email}
+                  disabled={isLoading}
+                  onChange={(e) => { setEmail(e.target.value); clearErrors(); }}
+                  onBlur={validateEmailField}
+                  className="w-full pl-9 pr-3 py-1.5 text-sm border border-gray-300 rounded-md outline-none focus:border-[#1B4D3E] focus:ring-1 focus:ring-[#1B4D3E] text-gray-900"
+                  placeholder="you@example.com"
+                />
+              </div>
+              {touched.email && fieldErrors.email && (
+                <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  {fieldErrors.email}
                 </p>
               )}
             </div>
 
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="flex items-center gap-2 text-sm font-bold text-slate-700">
-                  <Lock className="w-4 h-4 text-emerald-500" /> Password
-                </label>
-                <Link to="/forgot-password" className="text-xs font-bold text-emerald-600 hover:text-emerald-700">
-                  Forgot?
-                </Link>
-              </div>
+            {/* Password Field */}
+            <div className="mb-4">
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Password <span className="text-red-500">*</span>
+              </label>
               <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
                 <input
-                  id="login-password"
                   ref={passwordRef}
                   type={showPassword ? 'text' : 'password'}
-                  placeholder="••••••••"
                   value={password}
                   disabled={isLoading}
-                  onChange={e => setPassword(e.target.value)}
-                  onBlur={() => handleBlur('password')}
-                  className={`w-full px-5 py-3.5 bg-slate-50 border rounded-2xl outline-none transition-all font-medium pr-12
-                    ${showError('password') ? 'border-red-500 bg-red-50/30' : 'border-slate-100 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/5'}`}
+                  onChange={(e) => { setPassword(e.target.value); clearErrors(); }}
+                  onBlur={validatePasswordField}
+                  className="w-full pl-9 pr-9 py-1.5 text-sm border border-gray-300 rounded-md outline-none focus:border-[#1B4D3E] focus:ring-1 focus:ring-[#1B4D3E] text-gray-900"
+                  placeholder="••••••••"
                 />
-                <button
-                  type="button"
+                <button type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
-                >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                  {showPassword ?
+                    <EyeOff className="w-3.5 h-3.5" /> :
+                    <Eye className="w-3.5 h-3.5" />}
                 </button>
               </div>
-              {showError('password') && (
-                <p className="text-red-500 text-xs font-bold flex items-center gap-1 animate-fadeIn">
-                  <AlertCircle className="w-3 h-3" /> {showError('password')}
+              {touched.password && fieldErrors.password && (
+                <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  {fieldErrors.password}
                 </p>
               )}
             </div>
 
+            {/* Forgot password link */}
+            <div className="flex justify-end mb-4">
+              <Link to="/forgot-password"
+                className="text-xs text-[#1B4D3E] hover:underline font-medium">
+                Forgot Password?
+              </Link>
+            </div>
+
+            {/* Submit button */}
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/10 flex items-center justify-center gap-3 active:scale-95 disabled:opacity-50"
+              className="w-full py-2 text-sm font-medium bg-[#1B4D3E] text-white rounded-md hover:bg-[#0F3D2E] disabled:opacity-50 flex items-center justify-center gap-2 transition"
             >
               {isLoading ? (
                 <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  Verifying...
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  Signing in...
                 </>
               ) : (
-                <>
-                  Sign In to Dashboard
-                  <ArrowRight className="w-5 h-5" />
-                </>
+                'Sign In'
               )}
             </button>
           </form>
 
-          <footer className="mt-12 pt-8 border-t border-slate-50 text-center">
-            <p className="text-slate-500 font-medium">
-              New to the platform?{' '}
-              <Link to="/register" className="text-emerald-600 font-bold hover:underline">
-                Create Free Account
+          {/* Divider + register link */}
+          <div className="mt-3 text-center">
+            <p className="text-xs text-gray-500">
+              Don't have an account?{' '}
+              <Link to="/register" className="text-[#1B4D3E] font-medium hover:underline">
+                Sign Up
               </Link>
             </p>
-          </footer>
+          </div>
         </div>
       </div>
     </div>
