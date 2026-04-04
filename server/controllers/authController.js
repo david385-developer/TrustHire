@@ -3,7 +3,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
 const { generateOTP, getOTPExpiry, isOTPLocked, hasOTPExpired, getLockoutMinutesRemaining } = require('../utils/otp');
-const { sendOTPEmail } = require('../services/emailService');
+const { sendOTPEmail, sendResetOTPEmail } = require('../services/emailService');
 
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '30d' });
@@ -502,3 +502,47 @@ exports.exportData = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+exports.forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user) return res.status(404).json({ success: false, message: 'No user found' });
+
+    const otp = generateOTP();
+    user.otp = { code: otp, expiresAt: getOTPExpiry(), attempts: 0, lockedUntil: null };
+    await user.save();
+
+    try {
+      await sendResetOTPEmail(user.email, user.name, otp);
+    } catch (err) {
+      console.error('Reset OTP email failed:', err.message);
+    }
+
+    res.json({ success: true, message: 'OTP sent to email' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.resetPassword = async (req, res) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user) return res.status(404).json({ success: false, message: 'No user found' });
+
+    if (user.otp?.code !== otp || hasOTPExpired(user.otp)) {
+      return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(newPassword, salt);
+    user.otp = undefined;
+    await user.save();
+
+    res.json({ success: true, message: 'Password reset successful' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+

@@ -46,7 +46,7 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Register routes
+// Routes
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/jobs', require('./routes/jobRoutes'));
 app.use('/api/applications', require('./routes/applicationRoutes'));
@@ -58,24 +58,15 @@ const PORT = process.env.PORT || 5000;
 
 // Connect DB and Start Server
 connectDB().then(async () => {
-  // Diagnostic checks
   console.log('--- STARTUP CHECK ---');
-  console.log('PORT:', process.env.PORT || 5000);
+  console.log('PORT:', PORT);
   console.log('MONGO_URI:', process.env.MONGO_URI ? 'SET' : 'MISSING');
   console.log('JWT_SECRET:', process.env.JWT_SECRET ? 'SET' : 'MISSING');
-  console.log('EMAIL_USER:', process.env.EMAIL_USER ? 'SET' : 'MISSING');
-  console.log('EMAIL_PASS:', process.env.EMAIL_PASS ? 'SET' : 'MISSING');
+  console.log('RESEND_API_KEY:', process.env.RESEND_API_KEY ? 'SET' : 'MISSING');
   console.log('CLIENT_URL:', process.env.CLIENT_URL || 'MISSING');
   console.log('RAZORPAY_KEY:', process.env.RAZORPAY_KEY_ID ? 'SET' : 'MISSING');
-  console.log('--- END CHECK ---');
 
-  // Verify email transporter
-  try {
-    const { verifyEmail } = require('./services/emailService');
-    await verifyEmail();
-  } catch (err) {
-    console.error('EMAIL: verifyEmail Error:', err.message);
-  }
+  await verifyEmail();
 
   // Start Cron job
   const { startCronJob } = require('./services/cronService');

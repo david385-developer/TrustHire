@@ -2,27 +2,29 @@ const Application = require('../models/Application');
 const Job = require('../models/Job');
 const Transaction = require('../models/Transaction');
 const { processRefund, processForfeit } = require('../services/refundService');
-const { 
-  sendApplicationReceived, 
-  sendInterviewScheduledEmail, 
-  sendShortlistedEmail, 
-  sendRejectedEmail, 
-  sendRefundEmail, 
-  sendHiredEmail,
-  sendFeeConfirmed,
-  sendFeeForfeited
-} = require('../services/emailService');
 const razorpay = require('../config/razorpay');
+
 const {
   notifyApplicationSubmitted,
   notifyNewApplication,
-  notifyInterviewScheduled,
   notifyPriorityApplication,
+  notifyInterviewScheduled,
+  notifyStatusUpdated,
   notifyRejected,
   notifyHired,
   notifyFeeRefunded,
   notifyFeeForfeited
 } = require('../services/notificationService');
+
+const {
+  sendApplicationReceived,
+  sendInterviewScheduledEmail,
+  sendShortlistedEmail,
+  sendRejectedEmail,
+  sendRefundEmail,
+  sendHiredEmail,
+  sendForfeitEmail
+} = require('../services/emailService');
 
 const VALID_STATUS_UPDATES = ['under_review', 'shortlisted', 'rejected', 'hired', 'joined'];
 
@@ -91,19 +93,26 @@ exports.applyToJob = async (req, res) => {
     // Free application
     await application.save();
     
-    // Notifications for candidate
-    try {
-      await notifyApplicationSubmitted(req.user.id, job.title, job.company);
-    } catch (e) { console.error('NOTIFY FAIL:', e.message); }
-    
-    try {
-      await sendApplicationReceived(req.user.email, job.title);
-    } catch (e) { console.error('EMAIL FAIL:', e.message); }
+    const candidate = req.user;
 
-    // Notifications for recruiter
+    // Notifications and Emails
     try {
-      await notifyNewApplication(job.postedBy, req.user.name || 'Candidate', job.title);
-    } catch (e) { console.error('NOTIFY FAIL:', e.message); }
+      await notifyApplicationSubmitted(candidate.id, job.title, job.company);
+    } catch (err) {
+      console.error('Notify submit failed:', err.message);
+    }
+
+    try {
+      await sendApplicationReceived(candidate.email, candidate.name, job.title, job.company);
+    } catch (err) {
+      console.error('Email submit failed:', err.message);
+    }
+
+    try {
+      await notifyNewApplication(job.postedBy, candidate.name, job.title);
+    } catch (err) {
+      console.error('Notify new app failed:', err.message);
+    }
 
     res.status(201).json({ success: true, data: application });
   } catch (error) {
@@ -226,8 +235,8 @@ exports.getTalentPool = async (req, res) => {
 
 exports.updateApplicationStatus = async (req, res) => {
   try {
-    const { status } = req.body;
-    if (!VALID_STATUS_UPDATES.includes(status)) {
+    const { status: newStatus } = req.body;
+    if (!VALID_STATUS_UPDATES.includes(newStatus)) {
       return res.status(400).json({ success: false, message: 'Invalid status update' });
     }
 
@@ -240,65 +249,71 @@ exports.updateApplicationStatus = async (req, res) => {
     if (application.job.postedBy.toString() !== req.user.id) {
       return res.status(403).json({ success: false, message: 'Not authorized' });
     }
-    if (application.status === status) {
+    
+    if (application.status === newStatus) {
       return res.json({ success: true, data: application });
     }
 
     const oldStatus = application.status;
-    application.status = status;
+    application.status = newStatus;
     await application.save();
 
     const candidate = application.candidate;
     const job = application.job;
 
-    // Side effects with try-catch
-    if (status === 'rejected' && oldStatus !== 'rejected') {
-      let feeRefunded = false;
-      if (application.feePaid && !application.refundId && application.status !== 'fee_refunded') {
-        const result = await processRefund(application, 'rejected');
-        if (result.success) {
-          feeRefunded = true;
-          try { await notifyFeeRefunded(candidate._id, application.feeAmount, 'Rejected', job.title); } catch (e) {}
-          try { await sendRefundEmail(candidate.email, candidate.name, application.feeAmount, 'application rejected'); } catch (e) {}
-        }
-      }
-      try { 
-        await notifyRejected(candidate._id, job.title, job.company, feeRefunded);
-      } catch (e) { console.error('NOTIFY FAIL:', e.message); }
-      
+    if (newStatus === 'shortlisted') {
       try {
-        await sendRejectedEmail(candidate.email, candidate.name, job.title, job.company, application.feeAmount, application.refundId, process.env.CLIENT_URL + '/jobs');
-      } catch (e) { console.error('EMAIL FAIL:', e.message); }
-    } 
-    else if (status === 'joined' && oldStatus !== 'joined') {
-      if (application.feePaid && !application.refundId && application.status !== 'fee_refunded') {
-        const result = await processRefund(application, 'joined');
-        if (result.success) {
-          try { await notifyFeeRefunded(candidate._id, application.feeAmount, 'Hired & Joined', job.title); } catch (e) {}
-          try { await sendRefundEmail(candidate.email, candidate.name, application.feeAmount, 'joining confirmation'); } catch (e) {}
-        }
+        await notifyStatusUpdated(application.candidate, job.title, 'Shortlisted', job.company);
+      } catch (err) {
+        console.error('Notify failed:', err.message);
       }
-      try { 
-        await notifyHired(candidate._id, job.title, job.company);
-      } catch (e) { console.error('NOTIFY FAIL:', e.message); }
+      try {
+        await sendShortlistedEmail(candidate.email, candidate.name, job.title, job.company);
+      } catch (err) {
+        console.error('Email failed:', err.message);
+      }
+    }
+
+    if (newStatus === 'rejected') {
+      const feeRefunded = application.feePaid;
       
+      // Process actual refund if applicable
+      if (feeRefunded && !application.refundId) {
+        await processRefund(application, 'rejected');
+      }
+
+      try {
+        await notifyRejected(application.candidate, job.title, job.company, feeRefunded);
+      } catch (err) {
+        console.error('Notify failed:', err.message);
+      }
+      try {
+        await sendRejectedEmail(
+          candidate.email, candidate.name, job.title,
+          job.company, application.feeAmount,
+          application.refundId
+        );
+      } catch (err) {
+        console.error('Email failed:', err.message);
+      }
+    }
+
+    if (newStatus === 'hired') {
+      // Process actual refund if hired
+      if (application.feePaid && !application.refundId) {
+        await processRefund(application, 'hired');
+      }
+
+      try {
+        await notifyHired(application.candidate, job.title, job.company);
+      } catch (err) {
+        console.error('Notify failed:', err.message);
+      }
       try {
         await sendHiredEmail(candidate.email, candidate.name, job.title, job.company);
-      } catch (e) { console.error('EMAIL FAIL:', e.message); }
-    }
-    else if (status === 'hired' && oldStatus !== 'hired') {
-      try { 
-        await notifyHired(candidate._id, job.title, job.company);
-      } catch (e) { console.error('NOTIFY FAIL:', e.message); }
-      
-      try {
-        await sendHiredEmail(candidate.email, candidate.name, job.title, job.company);
-      } catch (e) { console.error('EMAIL FAIL:', e.message); }
-    }
-    else if (status === 'shortlisted' && oldStatus !== 'shortlisted') {
-      try {
-        await sendShortlistedEmail(candidate.email, candidate.name, job.title, job.company, process.env.CLIENT_URL + '/dashboard/applications');
-      } catch (e) { console.error('EMAIL FAIL:', e.message); }
+      } catch (err) {
+        console.error('Email failed:', err.message);
+      }
     }
 
     res.json({ success: true, data: application });
@@ -309,18 +324,13 @@ exports.updateApplicationStatus = async (req, res) => {
 
 exports.updateInterview = async (req, res) => {
   try {
-    const { scheduledAt, mode, link, notes } = req.body;
+    const { scheduledAt: interviewDate, mode, link, notes } = req.body;
     const normalizedMode = normalizeInterviewMode(mode);
-    if (!scheduledAt) {
+    
+    if (!interviewDate) {
       return res.status(400).json({ success: false, message: 'Interview date and time are required' });
     }
-    if (!['online', 'in_person', 'phone'].includes(normalizedMode)) {
-      return res.status(400).json({ success: false, message: 'Please select a valid interview mode' });
-    }
-    if (normalizedMode === 'online' && !String(link || '').trim()) {
-      return res.status(400).json({ success: false, message: 'Meeting link is required for online interviews' });
-    }
-
+    
     const application = await Application.findById(req.params.id)
       .populate('job')
       .populate('candidate');
@@ -331,19 +341,25 @@ exports.updateInterview = async (req, res) => {
     }
 
     application.status = 'interview_scheduled';
-    application.interview = { scheduledAt, mode: normalizedMode, link, notes };
+    application.interview = { scheduledAt: interviewDate, mode: normalizedMode, link, notes };
     await application.save();
 
     const candidate = application.candidate;
     const job = application.job;
 
     try {
-      await notifyInterviewScheduled(candidate._id, job.title, scheduledAt, mode, job.company);
-    } catch (e) { console.error('NOTIFY FAIL:', e.message); }
-    
+      await notifyInterviewScheduled(application.candidate, job.title, interviewDate, mode, job.company);
+    } catch (err) {
+      console.error('Notify failed:', err.message);
+    }
     try {
-      await sendInterviewScheduledEmail(candidate.email, candidate.name, job.title, scheduledAt, mode, link, job.company);
-    } catch (e) { console.error('EMAIL FAIL:', e.message); }
+      await sendInterviewScheduledEmail(
+        candidate.email, candidate.name, job.title,
+        interviewDate, mode, application.interview.link, job.company
+      );
+    } catch (err) {
+      console.error('Email failed:', err.message);
+    }
 
     res.json({ success: true, data: application });
   } catch (error) {
@@ -353,7 +369,7 @@ exports.updateInterview = async (req, res) => {
 
 exports.updateAttendance = async (req, res) => {
   try {
-    const { attended } = req.body; // boolean
+    const { attended } = req.body;
     const application = await Application.findById(req.params.id)
       .populate('job')
       .populate('candidate');
@@ -362,25 +378,30 @@ exports.updateAttendance = async (req, res) => {
     if (application.job.postedBy.toString() !== req.user.id) {
       return res.status(403).json({ success: false, message: 'Not authorized' });
     }
-    if (!application.interview || !application.interview.scheduledAt) {
-      return res.status(400).json({ success: false, message: 'Interview has not been scheduled for this application' });
-    }
 
     application.interview.attended = attended;
     
+    const candidate = application.candidate;
+    const job = application.job;
+
     if (attended === false) {
-      // No Show! Forfeit.
       await processForfeit(application);
       application.status = 'interview_no_show';
       await application.save();
-      
+
       try {
-        await notifyFeeForfeited(application.candidate._id, application.feeAmount, application.job.title, application.job.company);
-      } catch (e) { console.error('NOTIFY FAIL:', e.message); }
-      
+        await notifyFeeForfeited(application.candidate, application.feeAmount, job.title, job.company);
+      } catch (err) {
+        console.error('Notify failed:', err.message);
+      }
       try {
-        await sendFeeForfeited(application.candidate.email, application.job.title);
-      } catch (e) { console.error('EMAIL FAIL:', e.message); }
+        await sendForfeitEmail(
+          candidate.email, candidate.name,
+          application.feeAmount, job.title, job.company
+        );
+      } catch (err) {
+        console.error('Email failed:', err.message);
+      }
     } else {
       application.status = 'interview_completed';
       await application.save();
