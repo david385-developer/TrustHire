@@ -62,7 +62,8 @@ connectDB().then(async () => {
   console.log('PORT:', PORT);
   console.log('MONGO_URI:', process.env.MONGO_URI ? 'SET' : 'MISSING');
   console.log('JWT_SECRET:', process.env.JWT_SECRET ? 'SET' : 'MISSING');
-  console.log('RESEND_API_KEY:', process.env.RESEND_API_KEY ? 'SET' : 'MISSING');
+  console.log('EMAIL_USER:', process.env.EMAIL_USER ? 'SET' : 'MISSING');
+  console.log('EMAIL_PASS:', process.env.EMAIL_PASS ? 'SET' : 'MISSING');
   console.log('CLIENT_URL:', process.env.CLIENT_URL || 'MISSING');
   console.log('RAZORPAY_KEY:', process.env.RAZORPAY_KEY_ID ? 'SET' : 'MISSING');
 
