@@ -276,6 +276,28 @@ const sendForfeitEmail = async (email, name, amount, jobTitle, company) => {
   return sendMail(email, `Fee Forfeited — ${jobTitle}`, html);
 };
 
+const sendFeeConfirmed = async (email, amount) => {
+  const html = `
+    <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
+      <div style="background:#1B4D3E;padding:24px;text-align:center;">
+        <h1 style="color:#fff;margin:0;font-size:24px;">Payment Confirmed</h1>
+      </div>
+      <div style="padding:32px 24px;">
+        <h2 style="color:#1A1A1A;">Hi there,</h2>
+        <p style="color:#4B5563;font-size:16px;">
+          Your payment of <strong>Rs.${amount}</strong> for the Challenge Fee 
+          has been confirmed. Your application is now marked as <strong>Priority</strong>.
+        </p>
+      </div>
+      <div style="background:#F9FAFB;padding:16px 24px;
+        text-align:center;font-size:12px;color:#9CA3AF;">
+        TrustHire — Your Commitment Is Your Strongest Resume
+      </div>
+    </div>
+  `;
+  return sendMail(email, `Payment Confirmed — Rs.${amount}`, html);
+};
+
 module.exports = {
   verifyEmail,
   sendOTPEmail,
@@ -286,5 +308,6 @@ module.exports = {
   sendRejectedEmail,
   sendRefundEmail,
   sendHiredEmail,
-  sendForfeitEmail
+  sendForfeitEmail,
+  sendFeeConfirmed
 };
