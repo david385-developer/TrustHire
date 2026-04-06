@@ -9,6 +9,7 @@ interface JobFormData {
   company: string;
   location: string;
   type: string;
+  category: string;
   salaryMin: number;
   salaryMax: number;
   experienceMin: number;
@@ -24,6 +25,8 @@ interface JobFormProps {
   loading: boolean;
 }
 
+const CATEGORIES = ["Technology", "Marketing", "Finance", "Design", "Sales", "HR", "Operations", "Healthcare", "Education", "Legal", "Other"];
+
 const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, loading }) => {
   const [skills, setSkills] = useState<string[]>(job?.skills || []);
   const [skillInput, setSkillInput] = useState('');
@@ -34,6 +37,7 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, loading }) => {
   const { register, handleSubmit, formState: { errors }, reset } = useForm<JobFormData>({
     defaultValues: {
       type: 'full-time',
+      category: 'Technology',
       challengeFeeDays: 30,
       feeEnabled: job?.challengeFeeAmount > 0
     }
@@ -48,6 +52,7 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, loading }) => {
         company: job.company,
         location: job.location,
         type: job.type,
+        category: job.category || 'Technology',
         salaryMin: job.salary?.min || '',
         salaryMax: job.salary?.max || '',
         experienceMin: job.experienceRequired?.min || '',
@@ -90,6 +95,7 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, loading }) => {
       company: data.company,
       location: data.location,
       type: data.type,
+      category: data.category,
       salary: {
         min: Number(data.salaryMin),
         max: Number(data.salaryMax),
@@ -128,6 +134,37 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, loading }) => {
         )}
       </div>
 
+      {/* Category + Job Type */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div>
+          <label className={labelClass}>
+            Industry Category <span className="text-red-500">*</span>
+          </label>
+          <select
+            {...register('category', { required: 'Category is required' })}
+            className={`${inputClass} bg-white`}
+          >
+            {CATEGORIES.map(cat => (
+              <option key={cat} value={cat}>{cat}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className={labelClass}>
+            Job Type <span className="text-red-500">*</span>
+          </label>
+          <select
+            {...register('type', { required: 'Type is required' })}
+            className={`${inputClass} bg-white`}
+          >
+            <option value="full-time">Full-time</option>
+            <option value="part-time">Part-time</option>
+            <option value="contract">Contract</option>
+            <option value="remote">Remote</option>
+          </select>
+        </div>
+      </div>
+
       {/* Company + Location */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div>
@@ -160,22 +197,8 @@ const JobForm: React.FC<JobFormProps> = ({ job, onSubmit, loading }) => {
         </div>
       </div>
 
-      {/* Job Type + Salary Range */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <div>
-          <label className={labelClass}>
-            Job Type <span className="text-red-500">*</span>
-          </label>
-          <select
-            {...register('type', { required: 'Type is required' })}
-            className={`${inputClass} bg-white`}
-          >
-            <option value="full-time">Full-time</option>
-            <option value="part-time">Part-time</option>
-            <option value="contract">Contract</option>
-            <option value="remote">Remote</option>
-          </select>
-        </div>
+      {/* Salary Range */}
+      <div className="grid grid-cols-2 gap-3">
         <div>
           <label className={labelClass}>Min Salary (₹)</label>
           <input

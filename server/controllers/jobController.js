@@ -8,6 +8,7 @@ const normalizeJobPayload = (payload = {}) => {
   const company = String(payload.company || '').trim();
   const location = String(payload.location || '').trim();
   const type = String(payload.type || '').trim();
+  const category = String(payload.category || 'Technology').trim();
   const salaryMin = Number(payload?.salary?.min);
   const salaryMax = Number(payload?.salary?.max);
   const experienceMin = Number(payload?.experienceRequired?.min ?? 0);
@@ -24,6 +25,7 @@ const normalizeJobPayload = (payload = {}) => {
     company,
     location,
     type,
+    category,
     salary: {
       min: Number.isFinite(salaryMin) ? salaryMin : NaN,
       max: Number.isFinite(salaryMax) ? salaryMax : NaN,
@@ -45,6 +47,7 @@ const validateJobPayload = (payload) => {
   if (!payload.company) return 'Company name is required';
   if (!payload.location) return 'Location is required';
   if (!['full-time', 'part-time', 'contract', 'remote'].includes(payload.type)) return 'Please select a valid job type';
+  if (!["Technology", "Marketing", "Finance", "Design", "Sales", "HR", "Operations", "Healthcare", "Education", "Legal", "Other"].includes(payload.category)) return 'Please select a valid job category';
   if (!Number.isFinite(payload.salary.min) || payload.salary.min < 0) return 'Minimum salary must be a valid positive number';
   if (!Number.isFinite(payload.salary.max) || payload.salary.max < payload.salary.min) return 'Maximum salary must be greater than or equal to minimum salary';
   if (!Number.isFinite(payload.experienceRequired.min) || payload.experienceRequired.min < 0) return 'Minimum experience must be a valid positive number';
@@ -79,7 +82,12 @@ const getCandidateIdFromRequest = async (req) => {
 
 exports.getJobs = async (req, res) => {
   try {
-    const { search, location, type, minSalary, maxSalary, skills, hasFee, sort, page = 1, limit = 12 } = req.query;
+    const { 
+      search, location, type, category,
+      minSalary, maxSalary, 
+      minExp, maxExp,
+      skills, hasFee, sort, page = 1, limit = 12 
+    } = req.query;
 
     let query = { isActive: true };
 
@@ -91,6 +99,16 @@ exports.getJobs = async (req, res) => {
     }
     if (location) query.location = { $regex: location, $options: 'i' };
     if (type) query.type = type;
+    if (category) query.category = category;
+    
+    // Improved Experience Filtering
+    if (minExp !== undefined && minExp !== '') {
+      query['experienceRequired.min'] = { $gte: Number(minExp) };
+    }
+    if (maxExp !== undefined && maxExp !== '') {
+      query['experienceRequired.max'] = { $lte: Number(maxExp) };
+    }
+
     if (minSalary) query['salary.min'] = { $gte: Number(minSalary) };
     if (maxSalary) query['salary.max'] = { $lte: Number(maxSalary) };
     if (skills) query.skills = { $in: skills.split(',') };

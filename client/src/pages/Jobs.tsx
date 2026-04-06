@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   Search, MapPin, Filter, X, Briefcase, 
-  Clock, IndianRupee, Zap
+  Clock, IndianRupee, Zap, Tag
 } from 'lucide-react';
 import api from '../services/api';
 import Pagination from '../components/common/Pagination';
@@ -13,6 +13,7 @@ interface Job {
   company: string;
   location: string;
   type: string;
+  category: string;
   salary: { min: number; max: number; currency: string };
   skills: string[];
   experienceRequired: { min: number; max: number };
@@ -20,6 +21,8 @@ interface Job {
   createdAt: string;
   viewCount?: number;
 }
+
+const CATEGORIES = ["Technology", "Marketing", "Finance", "Design", "Sales", "HR", "Operations", "Healthcare", "Education", "Legal", "Other"];
 
 const Jobs: React.FC = () => {
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -32,8 +35,11 @@ const Jobs: React.FC = () => {
     search: '',
     location: '',
     type: '',
+    category: '',
     minSalary: '',
     maxSalary: '',
+    minExp: '',
+    maxExp: '',
     hasFee: '',
     sort: '-createdAt'
   });
@@ -64,8 +70,11 @@ const Jobs: React.FC = () => {
       if (appliedFilters.search) params.search = appliedFilters.search;
       if (appliedFilters.location) params.location = appliedFilters.location;
       if (appliedFilters.type) params.type = appliedFilters.type;
+      if (appliedFilters.category) params.category = appliedFilters.category;
       if (appliedFilters.minSalary) params.minSalary = appliedFilters.minSalary;
       if (appliedFilters.maxSalary) params.maxSalary = appliedFilters.maxSalary;
+      if (appliedFilters.minExp) params.minExp = appliedFilters.minExp;
+      if (appliedFilters.maxExp) params.maxExp = appliedFilters.maxExp;
       if (appliedFilters.hasFee) params.hasFee = appliedFilters.hasFee === 'yes';
 
       const response = await api.get('/jobs', { params });
@@ -118,12 +127,17 @@ const Jobs: React.FC = () => {
   };
 
   const handleClearFilters = () => {
-    const reset = { search: '', location: '', type: '', minSalary: '', maxSalary: '', hasFee: '', sort: '-createdAt' };
+    const reset = { search: '', location: '', type: '', category: '', minSalary: '', maxSalary: '', minExp: '', maxExp: '', hasFee: '', sort: '-createdAt' };
     setFilters(reset);
     setAppliedFilters(reset);
     setSearchInput('');
     setLocationInput('');
     setCurrentPage(1);
+  };
+
+  const removeCategory = () => {
+    setFilters(prev => ({ ...prev, category: '' }));
+    setAppliedFilters(prev => ({ ...prev, category: '' }));
   };
 
   const formatSalary = (salary: { min: number; max: number }) => {
@@ -181,7 +195,23 @@ const Jobs: React.FC = () => {
 
         <div>
           <label className="text-[11px] font-semibold text-gray-900 mb-1.5 uppercase tracking-wider block">
-            Salary Range
+            Category
+          </label>
+          <select 
+            value={filters.category}
+            onChange={(e) => setFilters({...filters, category: e.target.value})}
+            className="w-full px-2 py-1 text-xs border border-gray-200 rounded bg-white text-gray-900 outline-none focus:border-[#1B4D3E]"
+          >
+            <option value="">All Categories</option>
+            {CATEGORIES.map(cat => (
+              <option key={cat} value={cat}>{cat}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="text-[11px] font-semibold text-gray-900 mb-1.5 uppercase tracking-wider block">
+            Salary Range (LPA)
           </label>
           <div className="grid grid-cols-2 gap-2">
             <input 
@@ -202,6 +232,32 @@ const Jobs: React.FC = () => {
         </div>
 
         <div>
+           <label className="text-[11px] font-semibold text-gray-900 mb-1.5 uppercase tracking-wider block">
+            Experience (Years)
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            <input 
+              type="number" 
+              placeholder="Min" 
+              min="0"
+              max="20"
+              className="w-full px-2 py-1 text-xs border border-gray-200 rounded bg-white text-gray-900 outline-none"
+              value={filters.minExp}
+              onChange={(e) => setFilters({...filters, minExp: e.target.value})}
+            />
+            <input 
+              type="number" 
+              placeholder="Max"
+              min="0"
+              max="20" 
+              className="w-full px-2 py-1 text-xs border border-gray-200 rounded bg-white text-gray-900 outline-none"
+              value={filters.maxExp}
+              onChange={(e) => setFilters({...filters, maxExp: e.target.value})}
+            />
+          </div>
+        </div>
+
+        <div>
           <label className="text-[11px] font-semibold text-gray-900 mb-1.5 uppercase tracking-wider block">
             Challenge Fee
           </label>
@@ -214,15 +270,6 @@ const Jobs: React.FC = () => {
             <option value="yes">Priority (Has Fee)</option>
             <option value="no">Standard (No Fee)</option>
           </select>
-        </div>
-
-        <div>
-           <label className="text-[11px] font-semibold text-gray-900 mb-1.5 uppercase tracking-wider block">
-            Experience
-          </label>
-          <div className="p-2 bg-blue-50 border border-blue-100 rounded text-[10px] text-blue-600 font-medium">
-            Filter by experience coming soon.
-          </div>
         </div>
       </div>
 
@@ -306,9 +353,18 @@ const Jobs: React.FC = () => {
         {/* JOB CARDS - SCROLLABLE */}
         <main className="flex-1 overflow-y-auto p-3">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
-              {loading ? 'Finding jobs...' : `${jobs.length} Jobs Found`}
-            </h2>
+            <div className="flex items-center gap-2 overflow-x-auto pb-1">
+              <h2 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                {loading ? 'Finding jobs...' : `${jobs.length} Jobs Found`}
+              </h2>
+              {appliedFilters.category && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#1B4D3E]/10 text-[#1B4D3E] text-[10px] font-bold whitespace-nowrap">
+                  <Tag className="w-2.5 h-2.5" />
+                  {appliedFilters.category}
+                  <X className="w-2.5 h-2.5 cursor-pointer hover:text-red-500" onClick={removeCategory} />
+                </span>
+              )}
+            </div>
           </div>
 
           {loading ? (
@@ -354,7 +410,11 @@ const Jobs: React.FC = () => {
                         <div className="flex items-start justify-between gap-2 mb-0.5">
                           <div>
                             <h3 className="text-sm font-semibold text-gray-900 truncate">{job.title}</h3>
-                            <p className="text-xs text-gray-500 truncate">{job.company}</p>
+                            <p className="text-xs text-gray-500 truncate flex items-center gap-1.5">
+                              {job.company}
+                              <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
+                              <span className="text-[#1B4D3E] font-medium">{job.category}</span>
+                            </p>
                           </div>
                           {job.challengeFeeAmount > 0 && (
                             <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 flex-shrink-0">

@@ -15,6 +15,7 @@ import Register from './pages/Register';
 import VerifyOTP from './pages/VerifyOTP';
 import ForgotPassword from './pages/ForgotPassword';
 import CandidateDashboard from './pages/CandidateDashboard';
+import BackendWakeupBanner from './components/common/BackendWakeupBanner';
 import CandidateApplications from './pages/candidate/ApplicationsPage';
 import CandidateProfile from './pages/candidate/ProfilePage';
 import CandidateSavedJobs from './pages/candidate/SavedJobsPage';
@@ -38,6 +39,8 @@ import StaticPage from './pages/StaticPage';
 
 import ErrorBoundary from './components/common/ErrorBoundary.jsx';
 import NotificationsPage from './pages/NotificationsPage';
+import Blog from './pages/Blog';
+import BlogPostDetail from './pages/BlogPostDetail';
 
 function App() {
   useEffect(() => {
@@ -70,12 +73,15 @@ function App() {
     <BrowserRouter>
       <ErrorBoundary>
         <AuthProvider>
+          <BackendWakeupBanner />
           <Routes>
             {/* Public Routes with Navbar and Footer */}
             <Route element={<><Navbar /><main className="flex-1 pt-16"><Outlet /></main><Footer /></>}>
               <Route path="/" element={<Home />} />
               <Route path="/jobs" element={<Jobs />} />
               <Route path="/jobs/:id" element={<JobDetail />} />
+              <Route path="/blog" element={<Blog />} />
+              <Route path="/blog/:id" element={<BlogPostDetail />} />
               <Route path="/:slug" element={<StaticPage />} />
             </Route>
 

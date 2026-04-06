@@ -42,6 +42,7 @@ const Navbar: React.FC = () => {
 
   const navLinks = [
     { label: 'Jobs', path: '/jobs', icon: <Briefcase className="w-4 h-4" /> },
+    { label: 'Journal', path: '/blog', icon: <LayoutDashboard className="w-4 h-4" /> },
     { label: 'How It Works', path: '/#how-it-works', icon: <HelpCircle className="w-4 h-4" /> },
     { label: 'For Employers', path: '/#for-employers', icon: <Building className="w-4 h-4" /> }
   ];

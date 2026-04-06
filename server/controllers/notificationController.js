@@ -1,4 +1,5 @@
 const Notification = require('../models/Notification');
+const PushSubscription = require('../models/PushSubscription');
 
 const getNotifications = async (req, res) => {
   try {
@@ -77,10 +78,66 @@ const deleteNotification = async (req, res) => {
   }
 };
 
+const getVapidPublicKey = (req, res) => {
+  const publicKey = process.env.VAPID_PUBLIC_KEY;
+  if (!publicKey) {
+    return res.status(404).json({ success: false, message: 'VAPID public key not found' });
+  }
+  res.json({ publicKey });
+};
+
+const subscribe = async (req, res) => {
+  try {
+    const { subscription, deviceInfo } = req.body;
+    
+    // Check if subscription already exists for this endpoint
+    const existingSub = await PushSubscription.findOne({ endpoint: subscription.endpoint });
+    
+    if (existingSub) {
+      // Update existing subscription
+      existingSub.user = req.user._id;
+      existingSub.isActive = true;
+      existingSub.deviceInfo = deviceInfo;
+      existingSub.keys = subscription.keys;
+      await existingSub.save();
+    } else {
+      // Create new subscription
+      await PushSubscription.create({
+        user: req.user._id,
+        endpoint: subscription.endpoint,
+        keys: subscription.keys,
+        deviceInfo,
+        isActive: true
+      });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Push subscribe error:', error.message);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+const unsubscribe = async (req, res) => {
+  try {
+    const { endpoint } = req.body;
+    await PushSubscription.findOneAndUpdate(
+      { endpoint, user: req.user._id },
+      { isActive: false }
+    );
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 module.exports = {
   getNotifications,
   getUnreadCount,
   markAsRead,
   markAllAsRead,
-  deleteNotification
+  deleteNotification,
+  getVapidPublicKey,
+  subscribe,
+  unsubscribe
 };

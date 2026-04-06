@@ -23,6 +23,12 @@ const JobSchema = new mongoose.Schema({
     enum: ["full-time", "part-time", "contract", "remote"],
     required: true
   },
+  category: {
+    type: String,
+    enum: ["Technology", "Marketing", "Finance", "Design", "Sales", "HR", "Operations", "Healthcare", "Education", "Legal", "Other"],
+    default: "Technology",
+    required: true
+  },
   salary: {
     min: { type: Number },
     max: { type: Number },
