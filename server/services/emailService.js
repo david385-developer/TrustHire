@@ -1,20 +1,11 @@
 const nodemailer = require('nodemailer');
 
 const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 465,
-  secure: true, // Port 587 must be false (it uses STARTTLS)
+  service: 'gmail',
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS
-  },
-  tls: {
-    rejectUnauthorized: false // Helps avoid blocks on cloud proxies
-  },
-  family: 4,
-  connectionTimeout: 60000,
-  greetingTimeout: 30000,
-  socketTimeout: 60000
+  }
 });
 
 const verifyEmail = async () => {
