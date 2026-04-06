@@ -9,7 +9,8 @@ const {
   updateAttendance, 
   getApplicationById,
   getAllRecruiterApplications,
-  getTalentPool
+  getTalentPool,
+  withdrawApplication
 } = require('../controllers/applicationController');
 const auth = require('../middlewares/auth');
 const roleCheck = require('../middlewares/roleCheck');
@@ -21,6 +22,7 @@ router.get('/recruiter/candidates', auth, roleCheck(['recruiter']), getTalentPoo
 router.get('/job/:jobId', auth, roleCheck(['recruiter']), getJobApplications);
 router.get('/:id', auth, getApplicationById);
 
+router.put('/:id/withdraw', auth, roleCheck(['candidate']), withdrawApplication);
 router.put('/:id/status', auth, roleCheck(['recruiter']), updateApplicationStatus);
 router.put('/:id/interview', auth, roleCheck(['recruiter']), updateInterview);
 router.put('/:id/attendance', auth, roleCheck(['recruiter']), updateAttendance);

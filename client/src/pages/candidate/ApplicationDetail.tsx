@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, MapPin, Briefcase, Clock, Loader2,
-  CheckCircle, XCircle, AlertCircle, Calendar
+  CheckCircle, XCircle, AlertCircle, Calendar, Trash2
 } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 import api from '../../services/api';
 
 const ApplicationDetail: React.FC = () => {
@@ -12,6 +13,7 @@ const ApplicationDetail: React.FC = () => {
   const [application, setApplication] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [withdrawing, setWithdrawing] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -63,7 +65,8 @@ const ApplicationDetail: React.FC = () => {
     'shortlisted': 'bg-green-50 text-green-700 border-green-200',
     'interview_scheduled': 'bg-purple-50 text-purple-700 border-purple-200',
     'rejected': 'bg-red-50 text-red-700 border-red-200',
-    'hired': 'bg-emerald-50 text-emerald-700 border-emerald-200'
+    'hired': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    'withdrawn': 'bg-gray-100 text-gray-600 border-gray-300'
   };
 
   const statusLabel: Record<string, string> = {
@@ -72,7 +75,27 @@ const ApplicationDetail: React.FC = () => {
     'shortlisted': 'Shortlisted',
     'interview_scheduled': 'Interview Scheduled',
     'rejected': 'Not Selected',
-    'hired': 'Hired'
+    'hired': 'Hired',
+    'withdrawn': 'Withdrawn'
+  };
+
+  const handleWithdraw = async () => {
+    if (!window.confirm("Are you sure you want to withdraw? Note: Challenge fees (if paid) are non-refundable for voluntary withdrawals.")) {
+      return;
+    }
+
+    setWithdrawing(true);
+    try {
+      const { data } = await api.put(`/applications/${id}/withdraw`);
+      if (data.success) {
+        toast.success('Application withdrawn successfully');
+        setApplication(data.data);
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Withdrawal failed');
+    } finally {
+      setWithdrawing(false);
+    }
   };
 
   const getInitials = (name: any) => {
@@ -303,6 +326,27 @@ const ApplicationDetail: React.FC = () => {
               <h3 className="text-xs font-semibold text-gray-900 mb-1.5">Cover Letter</h3>
               <p className="text-xs text-gray-700 leading-relaxed whitespace-pre-line">
                 {application.coverLetter}
+              </p>
+            </div>
+          )}
+
+          {/* Actions */}
+          {!['withdrawn', 'rejected', 'hired', 'joined'].includes(status) && (
+            <div className="mt-8 pt-4 border-t border-gray-200">
+               <button 
+                onClick={handleWithdraw}
+                disabled={withdrawing}
+                className="flex items-center justify-center gap-2 w-full py-4 text-red-600 border-2 border-red-100 rounded-2xl font-bold hover:bg-red-50 hover:border-red-200 transition-all active:scale-95 disabled:opacity-50"
+              >
+                {withdrawing ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <Trash2 className="w-5 h-5" />
+                )}
+                Withdraw Application
+              </button>
+              <p className="text-center text-[10px] text-gray-400 mt-2 font-medium">
+                Note: Voluntary withdrawals are final and not eligible for challenge fee refunds.
               </p>
             </div>
           )}

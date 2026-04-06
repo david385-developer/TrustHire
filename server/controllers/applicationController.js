@@ -390,3 +390,35 @@ exports.updateAttendance = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+exports.withdrawApplication = async (req, res) => {
+  try {
+    const application = await Application.findById(req.params.id);
+    if (!application) {
+      return res.status(404).json({ success: false, message: 'Application not found' });
+    }
+
+    if (application.candidate.toString() !== req.user.id) {
+      return res.status(403).json({ success: false, message: 'Not authorized to withdraw this application' });
+    }
+
+    if (['withdrawn', 'rejected', 'hired', 'joined'].includes(application.status)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: `Cannot withdraw. Application is already ${application.status.replace('_', ' ')}.` 
+      });
+    }
+
+    // Update status - explicitly NO refund processed as per user requirement
+    application.status = 'withdrawn';
+    await application.save();
+
+    res.json({ 
+      success: true, 
+      message: 'Application withdrawn. Note: Application fees are non-refundable upon withdrawal.',
+      data: application 
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};

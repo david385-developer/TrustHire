@@ -50,6 +50,7 @@ const ApplicationSchema = new mongoose.Schema({
       "rejected",
       "hired",
       "joined",
+      "withdrawn",
       "fee_refunded",
       "fee_forfeited"
     ],

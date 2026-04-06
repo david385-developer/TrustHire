@@ -57,6 +57,7 @@ const ApplicationsPage: React.FC = () => {
       case 'rejected': return 'danger';
       case 'fee_refunded': return 'success';
       case 'fee_forfeited': return 'danger';
+      case 'withdrawn': return 'default';
       default: return 'default';
     }
   };
@@ -69,7 +70,7 @@ const ApplicationsPage: React.FC = () => {
         );
       case 'completed':
         return applications.filter((app) =>
-          ['rejected', 'hired', 'joined', 'fee_refunded', 'fee_forfeited', 'interview_no_show'].includes(app.status)
+          ['rejected', 'hired', 'joined', 'fee_refunded', 'fee_forfeited', 'interview_no_show', 'withdrawn'].includes(app.status)
         );
       case 'fee':
         return applications.filter((app) => app.feePaid);
