@@ -340,10 +340,22 @@ const Register: React.FC = () => {
 
           {/* ── CANDIDATE-ONLY FIELDS ── */}
           {role === 'candidate' && (
+
             <div className="border-t border-gray-100 pt-3 mt-1">
               <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-2">
                 Candidate Details
               </p>
+
+              <div className='flex mb-2 gap-3'>
+                <div className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md outline-none focus:border-[#1B4D3E] focus:ring-1 focus:ring-[#1B4D3E] text-gray-900">
+                  <input type="radio" name="gender" id="male" className='mr-2' />
+                  <label htmlFor="male">Male</label>
+                </div>
+                <div className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md outline-none focus:border-[#1B4D3E] focus:ring-1 focus:ring-[#1B4D3E] text-gray-900">
+                  <input type="radio" className='mr-2' name="gender" id="female" />
+                  <label htmlFor="female">Female</label>
+                </div>
+              </div>
 
               {/* DOB + Qualification */}
               <div className="grid grid-cols-2 gap-x-3 gap-y-0">

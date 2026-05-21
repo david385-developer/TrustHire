@@ -1,15 +1,27 @@
 const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
+
+// Initialize Resend if API key is provided (bypasses Render SMTP port blocks)
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS
-  }
+  },
+  connectionTimeout: 5000, // 5 seconds connection timeout
+  greetingTimeout: 5000,   // 5 seconds greeting timeout
+  socketTimeout: 10000     // 10 seconds socket timeout
 });
 
 const verifyEmail = async () => {
   try {
+    if (resend) {
+      console.log('EMAIL: Resend (HTTP API) initialized and selected.');
+      return true;
+    }
+
     if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
       console.error('EMAIL: EMAIL_USER or EMAIL_PASS missing');
       return false;
@@ -25,6 +37,21 @@ const verifyEmail = async () => {
 
 const sendMail = async (to, subject, html) => {
   try {
+    if (resend) {
+      const fromEmail = process.env.EMAIL_FROM || 'onboarding@resend.dev';
+      const { data, error } = await resend.emails.send({
+        from: `TrustHire <${fromEmail}>`,
+        to: [to],
+        subject: subject,
+        html: html
+      });
+      if (error) {
+        throw new Error(error.message);
+      }
+      console.log(`EMAIL: Sent via Resend to ${to} — ${subject} — ${data?.id}`);
+      return true;
+    }
+
     if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
       console.error('EMAIL: Credentials missing, skipping');
       return false;
@@ -38,7 +65,7 @@ const sendMail = async (to, subject, html) => {
     console.log(`EMAIL: Sent to ${to} — ${subject} — ${info.messageId}`);
     return true;
   } catch (error) {
-    console.error(`EMAIL: Failed to ${to}:`, error.message);
+    console.error(`EMAIL: Failed to send to ${to}:`, error.message);
     return false;
   }
 };
