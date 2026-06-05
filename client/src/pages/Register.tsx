@@ -1,535 +1,535 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { Eye, EyeOff, Loader2, AlertCircle, User, Building, Mail, Lock, UserCheck } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import api from '../services/api';
+import Logo from '../components/common/Logo';
+import ThemeToggle from '../components/common/ThemeToggle';
+import AnimatedPage from '../components/common/AnimatedPage';
+
+const registerSchema = z.object({
+  role: z.string().min(1, 'Please select a role'),
+  name: z.string().min(2, 'Name must be at least 2 characters'),
+  email: z.string().min(1, 'Email is required').email('Enter a valid email'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+  confirmPassword: z.string().min(1, 'Confirm password is required'),
+  gender: z.string().optional(),
+  dob: z.string().optional(),
+  qualification: z.string().optional(),
+  stream: z.string().optional(),
+  gradStatus: z.string().optional(),
+  passedOutYear: z.string().optional(),
+  company: z.string().optional(),
+  agreedTerms: z.boolean().refine(v => v === true, 'You must agree to the terms'),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords do not match",
+  path: ["confirmPassword"],
+}).refine((data) => {
+  if (data.role === 'candidate') {
+    return !!data.dob;
+  }
+  return true;
+}, {
+  message: "Date of birth is required",
+  path: ["dob"],
+}).refine((data) => {
+  if (data.role === 'candidate') {
+    return !!data.qualification;
+  }
+  return true;
+}, {
+  message: "Qualification is required",
+  path: ["qualification"],
+}).refine((data) => {
+  if (data.role === 'recruiter') {
+    return !!data.company && data.company.trim().length > 0;
+  }
+  return true;
+}, {
+  message: "Company name is required",
+  path: ["company"],
+});
+
+type RegisterFormValues = z.infer<typeof registerSchema>;
 
 const Register: React.FC = () => {
   const navigate = useNavigate();
-
-  // Role
-  const [role, setRole] = useState('');
-
-  // Shared fields
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-
-  // Candidate-only fields
-  const [dob, setDob] = useState('');
-  const [qualification, setQualification] = useState('');
-  const [stream, setStream] = useState('');
-  const [gradStatus, setGradStatus] = useState('');
-  const [passedOutYear, setPassedOutYear] = useState('');
-
-  // Recruiter-only fields
-  const [company, setCompany] = useState('');
-
-  // Common
-  const [agreedTerms, setAgreedTerms] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [errors, setErrors] = useState<any>({});
 
-  // ─── VALIDATION ───
+  const {
+    register,
+    handleSubmit,
+    watch,
+    setValue,
+    clearErrors,
+    formState: { errors },
+  } = useForm<RegisterFormValues>({
+    resolver: zodResolver(registerSchema),
+    defaultValues: {
+      role: '',
+      name: '',
+      email: '',
+      password: '',
+      confirmPassword: '',
+      gender: 'Male',
+      dob: '',
+      qualification: '',
+      stream: '',
+      gradStatus: '',
+      passedOutYear: '',
+      company: '',
+      agreedTerms: false,
+    },
+  });
 
-  const validate = () => {
-    const errs: any = {};
+  const selectedRole = watch('role');
+  const watchedGradStatus = watch('gradStatus');
+  const watchedPassword = watch('password');
 
-    if (!role) {
-      errs.role = 'Please select a role';
-    }
-
-    if (!name.trim()) {
-      errs.name = 'Name is required';
-    } else if (name.trim().length < 2) {
-      errs.name = 'Name must be at least 2 characters';
-    }
-
-    if (!email.trim()) {
-      errs.email = 'Email is required';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      errs.email = 'Enter a valid email';
-    }
-
-    if (!password) {
-      errs.password = 'Password is required';
-    } else if (password.length < 6) {
-      errs.password = 'Password must be at least 6 characters';
-    }
-
-    if (!confirmPassword) {
-      errs.confirmPassword = 'Please confirm your password';
-    } else if (password !== confirmPassword) {
-      errs.confirmPassword = 'Passwords do not match';
-    }
-
-    // Candidate-specific validation
-    if (role === 'candidate') {
-      if (!dob) {
-        errs.dob = 'Date of birth is required';
-      }
-      if (!qualification) {
-        errs.qualification = 'Qualification is required';
-      }
-    }
-
-    // Recruiter-specific validation
-    if (role === 'recruiter') {
-      if (!company.trim()) {
-        errs.company = 'Company name is required';
-      }
-    }
-
-    if (!agreedTerms) {
-      errs.terms = 'You must agree to the terms';
-    }
-
-    setErrors(errs);
-    return Object.keys(errs).length === 0;
-  };
-
-  // ─── SUBMIT ───
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!validate()) return;
-
+  const onSubmit = async (values: RegisterFormValues) => {
     setIsLoading(true);
-
     try {
       const payload: any = {
-        name: name.trim(),
-        email: email.trim(),
-        password,
-        role
+        name: values.name.trim(),
+        email: values.email.trim(),
+        password: values.password,
+        role: values.role,
       };
 
-      // Add role-specific fields
-      if (role === 'candidate') {
-        payload.dob = dob;
-        payload.qualification = qualification;
-        payload.stream = stream;
-        payload.graduationStatus = gradStatus;
-        if (gradStatus === 'Graduated') {
-          payload.passedOutYear = parseInt(passedOutYear) || null;
+      if (values.role === 'candidate') {
+        payload.dob = values.dob;
+        payload.qualification = values.qualification;
+        payload.stream = values.stream;
+        payload.graduationStatus = values.gradStatus;
+        payload.gender = values.gender;
+        if (values.gradStatus === 'Graduated' && values.passedOutYear) {
+          payload.passedOutYear = parseInt(values.passedOutYear) || null;
         }
       }
 
-      if (role === 'recruiter') {
-        payload.company = company.trim();
+      if (values.role === 'recruiter') {
+        payload.company = values.company?.trim();
       }
 
       await api.post('/auth/register', payload);
-
       toast.success('Account created! Check your email.');
-
-      // Navigate to OTP verification
-      navigate('/verify-otp', {
-        state: { email: email.trim() }
-      });
+      navigate('/verify-otp', { state: { email: values.email.trim() } });
     } catch (err: any) {
       const msg = err.response?.data?.message || 'Registration failed';
       toast.error(msg);
-
-      if (err.response?.data?.field) {
-        setErrors({
-          [err.response.data.field]: msg
-        });
-      }
     } finally {
       setIsLoading(false);
     }
   };
 
-  // ─── CLEAR ROLE-SPECIFIC ERRORS ON SWITCH ───
-
-  const handleRoleSwitch = (newRole: string) => {
-    setRole(newRole);
-    // Clear role-specific errors
-    setErrors((prev: any) => {
-      const next = { ...prev };
-      delete next.role;
-      delete next.dob;
-      delete next.qualification;
-      delete next.company;
-      return next;
-    });
+  const handleRoleSelect = (roleName: string) => {
+    setValue('role', roleName);
+    clearErrors('role');
   };
 
-  // ─── RENDER ───
-
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-6">
-      <div className="w-full max-w-md bg-white rounded-lg shadow-sm border border-gray-200 p-5">
-
-        {/* Logo */}
-        <div className="flex justify-center mb-2">
-          <h1 className="text-xl font-bold text-[#1B4D3E]">
-            TrustHire
-          </h1>
+    <AnimatedPage>
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 px-4 py-12 transition-colors duration-300 relative">
+        <div className="absolute top-4 right-4 z-50">
+          <ThemeToggle />
         </div>
 
-        {/* Heading */}
-        <h2 className="text-lg font-bold text-center text-gray-900 mb-1">
-          Create your account
-        </h2>
-        <p className="text-xs text-center text-gray-500 mb-3">
-          Join TrustHire and find your next opportunity
-        </p>
-
-        {/* ─── ROLE SELECTOR ─── */}
-        <div className="grid grid-cols-2 gap-2 mb-3">
-          <button
-            type="button"
-            onClick={() => handleRoleSwitch('candidate')}
-            className={`p-2.5 rounded-md border text-center transition
-              ${role === 'candidate'
-                ? 'border-[#1B4D3E] bg-green-50'
-                : 'border-gray-200 hover:border-gray-300'
-              }`}
-          >
-            <span className="text-xl block mb-0.5">👤</span>
-            <p className="text-xs font-medium text-gray-900">
-              Job Seeker
-            </p>
-          </button>
-          <button
-            type="button"
-            onClick={() => handleRoleSwitch('recruiter')}
-            className={`p-2.5 rounded-md border text-center transition
-              ${role === 'recruiter'
-                ? 'border-[#2563EB] bg-blue-50'
-                : 'border-gray-200 hover:border-gray-300'
-              }`}
-          >
-            <span className="text-xl block mb-0.5">🏢</span>
-            <p className="text-xs font-medium text-gray-900">
-              Recruiter
-            </p>
-          </button>
-        </div>
-
-        {errors.role && (
-          <p className="text-red-500 text-xs mb-2 text-center">
-            {errors.role}
-          </p>
-        )}
-
-        {/* ─── FORM ─── */}
-        <form onSubmit={handleSubmit}>
-
-          {/* ── SHARED FIELDS ── */}
-
-          {/* Full Name */}
-          <div className="mb-2.5">
-            <label className="block text-xs font-medium text-gray-700 mb-1">
-              Full Name <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md outline-none focus:border-[#1B4D3E] focus:ring-1 focus:ring-[#1B4D3E] text-gray-900"
-              placeholder="John Doe"
-            />
-            {errors.name && (
-              <p className="text-red-500 text-xs mt-0.5 flex items-center gap-1">
-                <AlertCircle className="w-3 h-3" />
-                {errors.name}
-              </p>
-            )}
-          </div>
-
-          {/* Email */}
-          <div className="mb-2.5">
-            <label className="block text-xs font-medium text-gray-700 mb-1">
-              Email <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md outline-none focus:border-[#1B4D3E] focus:ring-1 focus:ring-[#1B4D3E] text-gray-900"
-              placeholder="you@example.com"
-            />
-            {errors.email && (
-              <p className="text-red-500 text-xs mt-0.5 flex items-center gap-1">
-                <AlertCircle className="w-3 h-3" />
-                {errors.email}
-              </p>
-            )}
-          </div>
-
-          {/* Password */}
-          <div className="mb-2.5">
-            <label className="block text-xs font-medium text-gray-700 mb-1">
-              Password <span className="text-red-500">*</span>
-            </label>
-            <div className="relative">
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-3 pr-8 py-1.5 text-sm border border-gray-300 rounded-md outline-none focus:border-[#1B4D3E] focus:ring-1 focus:ring-[#1B4D3E] text-gray-900"
-                placeholder="••••••••"
-              />
-              <button type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400">
-                {showPassword
-                  ? <EyeOff className="w-3.5 h-3.5" />
-                  : <Eye className="w-3.5 h-3.5" />}
-              </button>
+        <div className="w-full max-w-lg">
+          <div className="glass-card rounded-2xl border border-slate-200/60 dark:border-slate-800/60 p-8 w-full shadow-lg">
+            
+            {/* Logo */}
+            <div className="flex justify-center mb-4">
+              <Logo />
             </div>
-            {errors.password && (
-              <p className="text-red-500 text-xs mt-0.5 flex items-center gap-1">
-                <AlertCircle className="w-3 h-3" />
-                {errors.password}
-              </p>
-            )}
-            {/* Strength indicator */}
-            {password && (
-              <div className="flex gap-1 mt-1">
-                {[1, 2, 3].map(i => (
-                  <div key={i}
-                    className={`h-0.5 flex-1 rounded-full
-                      ${password.length >= 8
-                        ? 'bg-green-400'
-                        : password.length >= 6
-                          ? 'bg-yellow-400'
-                          : 'bg-red-400'
-                      }`} />
-                ))}
-              </div>
-            )}
-          </div>
 
-          {/* Confirm Password */}
-          <div className="mb-2.5">
-            <label className="block text-xs font-medium text-gray-700 mb-1">
-              Confirm Password
-              <span className="text-red-500">*</span>
-            </label>
-            <div className="relative">
-              <input
-                type={showConfirm ? 'text' : 'password'}
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full px-3 pr-8 py-1.5 text-sm border border-gray-300 rounded-md outline-none focus:border-[#1B4D3E] focus:ring-1 focus:ring-[#1B4D3E] text-gray-900"
-                placeholder="••••••••"
-              />
-              <button type="button"
-                onClick={() => setShowConfirm(!showConfirm)}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400">
-                {showConfirm
-                  ? <EyeOff className="w-3.5 h-3.5" />
-                  : <Eye className="w-3.5 h-3.5" />}
-              </button>
+            <h2 className="text-2xl font-bold text-center text-slate-900 dark:text-white mb-1">
+              Create your account
+            </h2>
+            <p className="text-sm text-center text-slate-500 dark:text-slate-400 mb-6">
+              Join TrustHire and start priority recruitment
+            </p>
+
+            {/* Role selection buttons */}
+            <div className="space-y-1.5 mb-6">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider text-center">
+                Select Your Role <span className="text-red-500">*</span>
+              </label>
+              <div className="grid grid-cols-2 gap-4">
+                <button
+                  type="button"
+                  onClick={() => handleRoleSelect('candidate')}
+                  className={`p-4 rounded-xl border text-center flex flex-col items-center justify-center gap-2 transition-all ${
+                    selectedRole === 'candidate'
+                      ? 'border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/20 text-indigo-600 dark:text-indigo-400 ring-1 ring-indigo-500'
+                      : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900'
+                  }`}
+                >
+                  <User className="w-6 h-6" />
+                  <div>
+                    <p className="text-sm font-bold text-slate-900 dark:text-white">Job Seeker</p>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">Apply for jobs</p>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleRoleSelect('recruiter')}
+                  className={`p-4 rounded-xl border text-center flex flex-col items-center justify-center gap-2 transition-all ${
+                    selectedRole === 'recruiter'
+                      ? 'border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/20 text-indigo-600 dark:text-indigo-400 ring-1 ring-indigo-500'
+                      : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900'
+                  }`}
+                >
+                  <Building className="w-6 h-6" />
+                  <div>
+                    <p className="text-sm font-bold text-slate-900 dark:text-white">Recruiter</p>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">Post & hire talent</p>
+                  </div>
+                </button>
+              </div>
+              {errors.role && (
+                <p className="text-red-500 dark:text-red-400 text-xs text-center mt-1.5 flex items-center justify-center gap-1">
+                  <AlertCircle className="w-3.5 h-3.5" />
+                  {errors.role.message}
+                </p>
+              )}
             </div>
-            {errors.confirmPassword && (
-              <p className="text-red-500 text-xs mt-0.5 flex items-center gap-1">
-                <AlertCircle className="w-3 h-3" />
-                {errors.confirmPassword}
-              </p>
-            )}
-          </div>
 
-          {/* ── CANDIDATE-ONLY FIELDS ── */}
-          {role === 'candidate' && (
-
-            <div className="border-t border-gray-100 pt-3 mt-1">
-              <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                Candidate Details
-              </p>
-
-              <div className='flex mb-2 gap-3'>
-                <div className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md outline-none focus:border-[#1B4D3E] focus:ring-1 focus:ring-[#1B4D3E] text-gray-900">
-                  <input type="radio" name="gender" id="male" className='mr-2' />
-                  <label htmlFor="male">Male</label>
-                </div>
-                <div className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md outline-none focus:border-[#1B4D3E] focus:ring-1 focus:ring-[#1B4D3E] text-gray-900">
-                  <input type="radio" className='mr-2' name="gender" id="female" />
-                  <label htmlFor="female">Female</label>
-                </div>
-              </div>
-
-              {/* DOB + Qualification */}
-              <div className="grid grid-cols-2 gap-x-3 gap-y-0">
-                <div className="mb-2.5">
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Date of Birth
-                    <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="date"
-                    value={dob}
-                    onChange={(e) => setDob(e.target.value)}
-                    className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md outline-none focus:border-[#1B4D3E] focus:ring-1 focus:ring-[#1B4D3E] text-gray-900"
-                  />
-                  {errors.dob && (
-                    <p className="text-red-500 text-xs mt-0.5">{errors.dob}</p>
-                  )}
-                </div>
-
-                <div className="mb-2.5">
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Qualification
-                    <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={qualification}
-                    onChange={(e) => setQualification(e.target.value)}
-                    className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md outline-none focus:border-[#1B4D3E] focus:ring-1 focus:ring-[#1B4D3E] text-gray-900 bg-white"
-                  >
-                    <option value="">Select</option>
-                    <option>High School</option>
-                    <option>Diploma</option>
-                    <option>Bachelor's</option>
-                    <option>Master's</option>
-                    <option>PhD</option>
-                    <option>Other</option>
-                  </select>
-                  {errors.qualification && (
-                    <p className="text-red-500 text-xs mt-0.5">{errors.qualification}</p>
-                  )}
-                </div>
-
-                <div className="mb-2.5">
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Stream / Field
-                  </label>
+            {/* Stepper Form */}
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+              
+              {/* Full Name */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                  Full Name <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <UserCheck className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input
                     type="text"
-                    value={stream}
-                    onChange={(e) => setStream(e.target.value)}
-                    className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md outline-none focus:border-[#1B4D3E] focus:ring-1 focus:ring-[#1B4D3E] text-gray-900"
-                    placeholder="Computer Science"
+                    disabled={isLoading}
+                    {...register('name')}
+                    className="w-full pl-10 pr-4 py-2.5 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-white transition-all"
+                    placeholder="John Doe"
                   />
                 </div>
-
-                <div className="mb-2.5">
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Graduation Status
-                  </label>
-                  <select
-                    value={gradStatus}
-                    onChange={(e) => setGradStatus(e.target.value)}
-                    className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md outline-none focus:border-[#1B4D3E] focus:ring-1 focus:ring-[#1B4D3E] text-gray-900 bg-white"
-                  >
-                    <option value="">Select</option>
-                    <option>Currently Studying</option>
-                    <option>Graduated</option>
-                    <option>Graduating in 2026</option>
-                    <option>Graduating in 2027</option>
-                    <option>Graduating in 2028</option>
-                  </select>
-                </div>
-
-                {gradStatus === 'Graduated' && (
-                  <div className="mb-2.5 col-span-2">
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
-                      Passed Out Year
-                    </label>
-                    <input
-                      type="number"
-                      value={passedOutYear}
-                      onChange={(e) => setPassedOutYear(e.target.value)}
-                      className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md outline-none focus:border-[#1B4D3E] focus:ring-1 focus:ring-[#1B4D3E] text-gray-900"
-                      placeholder="2023"
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* ── RECRUITER-ONLY FIELDS ── */}
-          {role === 'recruiter' && (
-            <div className="border-t border-gray-100 pt-3 mt-1">
-              <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                Recruiter Details
-              </p>
-
-              <div className="mb-2.5">
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Company Name
-                  <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={company}
-                  onChange={(e) => setCompany(e.target.value)}
-                  className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md outline-none focus:border-[#1B4D3E] focus:ring-1 focus:ring-[#1B4D3E] text-gray-900"
-                  placeholder="Your company name"
-                />
-                {errors.company && (
-                  <p className="text-red-500 text-xs mt-0.5 flex items-center gap-1">
-                    <AlertCircle className="w-3 h-3" />
-                    {errors.company}
+                {errors.name && (
+                  <p className="text-red-500 dark:text-red-400 text-xs mt-1 flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    {errors.name.message}
                   </p>
                 )}
               </div>
+
+              {/* Email Address */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                  Email Address <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input
+                    type="email"
+                    disabled={isLoading}
+                    {...register('email')}
+                    className="w-full pl-10 pr-4 py-2.5 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-white transition-all"
+                    placeholder="you@example.com"
+                  />
+                </div>
+                {errors.email && (
+                  <p className="text-red-500 dark:text-red-400 text-xs mt-1 flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    {errors.email.message}
+                  </p>
+                )}
+              </div>
+
+              {/* Password */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                  Password <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    disabled={isLoading}
+                    {...register('password')}
+                    className="w-full pl-10 pr-10 py-2.5 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-white transition-all"
+                    placeholder="••••••••"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                {errors.password && (
+                  <p className="text-red-500 dark:text-red-400 text-xs mt-1 flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    {errors.password.message}
+                  </p>
+                )}
+
+                {/* Password strength */}
+                {watchedPassword && (
+                  <div className="flex gap-1.5 pt-1.5">
+                    {[1, 2, 3].map(i => (
+                      <div 
+                        key={i}
+                        className={`h-1 flex-1 rounded-full ${
+                          watchedPassword.length >= 8
+                            ? 'bg-emerald-500'
+                            : watchedPassword.length >= 6
+                              ? 'bg-amber-400'
+                              : 'bg-rose-500'
+                        }`} 
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Confirm Password */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                  Confirm Password <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input
+                    type={showConfirm ? 'text' : 'password'}
+                    disabled={isLoading}
+                    {...register('confirmPassword')}
+                    className="w-full pl-10 pr-10 py-2.5 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-white transition-all"
+                    placeholder="••••••••"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirm(!showConfirm)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+                  >
+                    {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                {errors.confirmPassword && (
+                  <p className="text-red-500 dark:text-red-400 text-xs mt-1 flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    {errors.confirmPassword.message}
+                  </p>
+                )}
+              </div>
+
+              {/* CANDIDATE SPECIFIC FIELDS */}
+              {selectedRole === 'candidate' && (
+                <div className="border-t border-slate-200 dark:border-slate-800 pt-4 space-y-4">
+                  <p className="text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
+                    Candidate Profile Details
+                  </p>
+
+                  {/* Gender Selector */}
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                      Gender
+                    </label>
+                    <div className="flex gap-4">
+                      {['Male', 'Female', 'Other'].map((g) => (
+                        <label 
+                          key={g}
+                          className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm font-medium text-slate-700 dark:text-slate-300 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900/60"
+                        >
+                          <input 
+                            type="radio" 
+                            value={g} 
+                            {...register('gender')} 
+                            className="text-indigo-600 focus:ring-indigo-500 border-slate-300" 
+                          />
+                          {g}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* Date of Birth */}
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                        Date of Birth <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="date"
+                        {...register('dob')}
+                        className="w-full px-4 py-2.5 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-white"
+                      />
+                      {errors.dob && (
+                        <p className="text-red-500 dark:text-red-400 text-xs mt-1">{errors.dob.message}</p>
+                      )}
+                    </div>
+
+                    {/* Qualification */}
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                        Qualification <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        {...register('qualification')}
+                        className="w-full px-4 py-2.5 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-white"
+                      >
+                        <option value="">Select Qualification</option>
+                        <option value="High School">High School</option>
+                        <option value="Diploma">Diploma</option>
+                        <option value="Bachelor's">Bachelor's</option>
+                        <option value="Master's">Master's</option>
+                        <option value="PhD">PhD</option>
+                        <option value="Other">Other</option>
+                      </select>
+                      {errors.qualification && (
+                        <p className="text-red-500 dark:text-red-400 text-xs mt-1">{errors.qualification.message}</p>
+                      )}
+                    </div>
+
+                    {/* Stream / Field */}
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                        Stream / Field
+                      </label>
+                      <input
+                        type="text"
+                        {...register('stream')}
+                        className="w-full px-4 py-2.5 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-white"
+                        placeholder="e.g. Computer Science"
+                      />
+                    </div>
+
+                    {/* Graduation Status */}
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                        Graduation Status
+                      </label>
+                      <select
+                        {...register('gradStatus')}
+                        className="w-full px-4 py-2.5 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-white"
+                      >
+                        <option value="">Select Status</option>
+                        <option value="Currently Studying">Currently Studying</option>
+                        <option value="Graduated">Graduated</option>
+                        <option value="Graduating in 2026">Graduating in 2026</option>
+                        <option value="Graduating in 2027">Graduating in 2027</option>
+                        <option value="Graduating in 2028">Graduating in 2028</option>
+                      </select>
+                    </div>
+
+                    {/* Passed out year (if graduated) */}
+                    {watchedGradStatus === 'Graduated' && (
+                      <div className="space-y-1.5 col-span-2">
+                        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                          Passed Out Year
+                        </label>
+                        <input
+                          type="number"
+                          {...register('passedOutYear')}
+                          className="w-full px-4 py-2.5 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-white"
+                          placeholder="e.g. 2024"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* RECRUITER SPECIFIC FIELDS */}
+              {selectedRole === 'recruiter' && (
+                <div className="border-t border-slate-200 dark:border-slate-800 pt-4 space-y-4">
+                  <p className="text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
+                    Recruiter Details
+                  </p>
+
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                      Company Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      disabled={isLoading}
+                      {...register('company')}
+                      className="w-full px-4 py-2.5 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-white"
+                      placeholder="Your company name"
+                    />
+                    {errors.company && (
+                      <p className="text-red-500 dark:text-red-400 text-xs mt-1 flex items-center gap-1">
+                        <AlertCircle className="w-3.5 h-3.5" />
+                        {errors.company.message}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Terms of Service Checkbox */}
+              <div className="space-y-1.5 pt-2">
+                <div className="flex items-start gap-2.5">
+                  <input
+                    type="checkbox"
+                    disabled={isLoading}
+                    {...register('agreedTerms')}
+                    className="mt-0.5 w-4 h-4 rounded border-slate-300 dark:border-slate-700 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span className="text-xs text-slate-500 dark:text-slate-400">
+                    I agree to the{' '}
+                    <Link to="/terms-of-service" className="text-indigo-600 dark:text-indigo-400 hover:underline font-semibold">
+                      Terms of Service
+                    </Link>{' '}
+                    and{' '}
+                    <Link to="/privacy-policy" className="text-indigo-600 dark:text-indigo-400 hover:underline font-semibold">
+                      Privacy Policy
+                    </Link>
+                  </span>
+                </div>
+                {errors.agreedTerms && (
+                  <p className="text-red-500 dark:text-red-400 text-xs flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    {errors.agreedTerms.message}
+                  </p>
+                )}
+              </div>
+
+              {/* Submit Button */}
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full py-3 text-sm font-semibold bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-600 dark:hover:bg-indigo-500 text-white rounded-xl disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/10 transition-all active:scale-[0.98]"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Creating account...
+                  </>
+                ) : (
+                  'Create Account'
+                )}
+              </button>
+            </form>
+
+            {/* Login Link */}
+            <div className="mt-6 text-center border-t border-slate-100 dark:border-slate-800 pt-6">
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                Already have an account?{' '}
+                <Link to="/login" className="text-indigo-600 dark:text-indigo-400 font-semibold hover:underline">
+                  Sign In
+                </Link>
+              </p>
             </div>
-          )}
 
-          {/* ── TERMS ── */}
-          <div className="flex items-start gap-2 mt-3 mb-3">
-            <input
-              type="checkbox"
-              checked={agreedTerms}
-              onChange={(e) => setAgreedTerms(e.target.checked)}
-              className="mt-0.5 w-3.5 h-3.5 rounded border-gray-300 text-[#1B4D3E] focus:ring-[#1B4D3E]"
-            />
-            <p className="text-xs text-gray-500">
-              I agree to the{' '}
-              <Link to="/terms-of-service" className="text-[#1B4D3E] hover:underline">
-                Terms
-              </Link>
-              {' '}and{' '}
-              <Link to="/privacy-policy" className="text-[#1B4D3E] hover:underline">
-                Privacy Policy
-              </Link>
-            </p>
           </div>
-          {errors.terms && (
-            <p className="text-red-500 text-xs mb-2">
-              {errors.terms}
-            </p>
-          )}
-
-          {/* ── SUBMIT ── */}
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full py-2 text-sm font-medium bg-[#1B4D3E] text-white rounded-md hover:bg-[#0F3D2E] disabled:opacity-50 flex items-center justify-center gap-2 transition"
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                Creating account...
-              </>
-            ) : (
-              'Create Account'
-            )}
-          </button>
-
-          {/* Login link */}
-          <div className="mt-2.5 text-center">
-            <p className="text-xs text-gray-500">
-              Already have an account?{' '}
-              <Link to="/login" className="text-[#1B4D3E] font-medium hover:underline">
-                Sign In
-              </Link>
-            </p>
-          </div>
-
-        </form>
+        </div>
       </div>
-    </div>
+    </AnimatedPage>
   );
 };
 

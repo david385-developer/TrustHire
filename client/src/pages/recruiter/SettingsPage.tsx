@@ -3,7 +3,6 @@ import {
   Settings, 
   Bell, 
   Lock, 
-  Trash2, 
   ChevronRight, 
   Mail, 
   AlertTriangle,

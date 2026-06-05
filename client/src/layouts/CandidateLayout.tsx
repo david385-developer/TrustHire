@@ -14,19 +14,19 @@ import {
 import { useAuth } from '../context/AuthContext';
 import NotificationBell from '../components/notifications/NotificationBell';
 import Logo from '../components/common/Logo';
+import ThemeToggle from '../components/common/ThemeToggle';
 
-// ─── LogoIcon for Tablet/Collapsed View ───────────────────────────────────────
 const LogoIcon: React.FC<{ className?: string }> = ({ className = '' }) => (
   <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
     <path 
       d="M16 2L4 8v8c0 7.2 5.1 13.9 12 16 6.9-2.1 12-8.8 12-16V8L16 2z" 
-      stroke="white" 
+      stroke="currentColor" 
       strokeWidth="2" 
       fill="none"
     />
     <path 
       d="M12 16l3 3 5-6" 
-      stroke="white" 
+      stroke="currentColor" 
       strokeWidth="2.5" 
       strokeLinecap="round" 
       strokeLinejoin="round"
@@ -66,45 +66,68 @@ const CandidateLayout: React.FC = () => {
 
   const isActive = (path: string) => location.pathname === path;
 
+  const getBreadcrumbs = () => {
+    const paths = location.pathname.split('/').filter(Boolean);
+    return (
+      <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 font-medium select-none">
+        <Link to="/dashboard" className="hover:text-indigo-600 dark:hover:text-indigo-400">Dashboard</Link>
+        {paths.map((p, i) => {
+          if (p === 'dashboard') return null;
+          const isLast = i === paths.length - 1;
+          const display = p.replace(/-/g, ' ');
+          return (
+            <React.Fragment key={i}>
+              <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+              {isLast ? (
+                <span className="capitalize text-slate-800 dark:text-slate-200 font-semibold">{display}</span>
+              ) : (
+                <Link to={`/dashboard/${p}`} className="capitalize hover:text-indigo-600 dark:hover:text-indigo-400">{display}</Link>
+              )}
+            </React.Fragment>
+          );
+        })}
+      </div>
+    );
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50 font-body">
-      {/* ─── MOBILE SIDEBAR (Drawer) ────────────────────────────────────────── */}
-      <aside className={`fixed top-0 left-0 h-screen w-60 bg-[#1B4D3E] flex flex-col z-50 transform transition-transform duration-300 md:hidden
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 font-body transition-colors duration-300">
+      
+      {/* MOBILE SIDEBAR (Drawer) */}
+      <aside className={`fixed top-0 left-0 h-screen w-64 bg-slate-950 dark:bg-slate-900 border-r border-slate-900 flex flex-col z-50 transform transition-transform duration-300 md:hidden
         ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         
         {/* TOP: Logo + User Info */}
-        <div className="flex-shrink-0 p-3 border-b border-white/10">
-          <div className="flex items-center gap-2 mb-3">
-            <Logo variant="light" className="scale-75 origin-left" />
+        <div className="flex-shrink-0 p-4 border-b border-slate-900">
+          <div className="flex items-center gap-2 mb-4">
+            <Logo variant="light" className="scale-90 origin-left" />
           </div>
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
-              <span className="text-xs font-bold text-white">
-                {user?.name?.charAt(0).toUpperCase()}
-              </span>
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-sm">
+              {user?.name?.charAt(0).toUpperCase()}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-white truncate">
+              <p className="text-sm font-semibold text-white truncate">
                 {user?.name}
               </p>
-              <span className="inline-block text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-white/70 mt-0.5">
-                Job Seeker
+              <span className="inline-block text-[10px] px-2 py-0.5 rounded bg-slate-800 text-indigo-400 font-bold uppercase tracking-wider mt-0.5">
+                Candidate
               </span>
             </div>
           </div>
         </div>
 
         {/* MIDDLE: Navigation Links */}
-        <nav className="flex-1 overflow-y-auto py-2 px-2">
+        <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
           {navItems.map(item => (
             <Link
               key={item.path}
               to={item.path}
               onClick={() => setIsOpen(false)}
-              className={`flex items-center gap-2.5 px-3 py-2 rounded-md text-sm mb-0.5 transition
+              className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm transition-all
                 ${isActive(item.path)
-                  ? 'bg-white/15 text-white font-medium'
-                  : 'text-white/70 hover:bg-white/10 hover:text-white'
+                  ? 'bg-indigo-600 text-white font-semibold'
+                  : 'text-slate-400 hover:bg-slate-900 hover:text-white'
                 }`}
             >
               <item.icon className="w-4 h-4 flex-shrink-0" />
@@ -114,10 +137,10 @@ const CandidateLayout: React.FC = () => {
         </nav>
 
         {/* BOTTOM: Logout */}
-        <div className="flex-shrink-0 p-2 border-t border-white/10">
+        <div className="flex-shrink-0 p-3 border-t border-slate-900">
           <button
             onClick={handleLogout}
-            className="flex items-center gap-2.5 w-full px-3 py-2 rounded-md text-sm text-white/70 hover:bg-white/10 hover:text-white transition"
+            className="flex items-center gap-3 w-full px-3.5 py-2.5 rounded-xl text-sm text-slate-400 hover:bg-slate-900 hover:text-white transition-all font-semibold"
           >
             <LogOut className="w-4 h-4 flex-shrink-0" />
             <span>Logout</span>
@@ -127,74 +150,69 @@ const CandidateLayout: React.FC = () => {
 
       {/* Backdrop for Mobile */}
       {isOpen && (
-        <div className="fixed inset-0 bg-black/50 z-40 md:hidden" onClick={() => setIsOpen(false)} />
+        <div className="fixed inset-0 bg-black/60 z-40 md:hidden backdrop-blur-sm" onClick={() => setIsOpen(false)} />
       )}
 
-      {/* ─── DESKTOP/TABLET SIDEBAR ─────────────────────────────────────────── */}
-      <aside className={`hidden md:flex fixed top-0 left-0 h-screen flex-col z-30 transition-all duration-300
-        ${isCollapsed ? 'w-14' : 'w-60'} bg-[#1B4D3E]`}>
+      {/* DESKTOP/TABLET SIDEBAR */}
+      <aside className={`hidden md:flex fixed top-0 left-0 h-screen flex-col z-30 transition-all duration-300 border-r border-slate-200 dark:border-slate-800
+        ${isCollapsed ? 'w-16' : 'w-64'} bg-slate-950 dark:bg-slate-900`}>
         
         {isCollapsed ? (
           /* TABLET: Icons only */
           <>
-            <div className="flex-shrink-0 p-2 border-b border-white/10 flex justify-center h-[57px] items-center">
-              <LogoIcon className="w-6 h-6" />
+            <div className="flex-shrink-0 p-2 border-b border-slate-900 flex justify-center h-16 items-center">
+              <LogoIcon className="w-6 h-6 text-indigo-500" />
             </div>
-            <nav className="flex-1 py-2 px-1 overflow-y-auto">
+            <nav className="flex-1 py-4 px-2 space-y-1.5 overflow-y-auto">
               {navItems.map(item => (
                 <Link
                   key={item.path}
                   to={item.path}
                   title={item.label}
-                  className={`flex items-center justify-center w-10 h-10 mx-auto rounded-md mb-0.5 transition
+                  className={`flex items-center justify-center w-12 h-12 mx-auto rounded-xl transition-all
                     ${isActive(item.path)
-                      ? 'bg-white/20 text-white'
-                      : 'text-white/70 hover:bg-white/10 hover:text-white'
+                      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/10'
+                      : 'text-slate-400 hover:bg-slate-900 hover:text-white'
                     }`}
                 >
-                  <item.icon className="w-4 h-4" />
+                  <item.icon className="w-5 h-5" />
                 </Link>
               ))}
             </nav>
-            <div className="flex-shrink-0 p-2 border-t border-white/10 flex justify-center">
+            <div className="flex-shrink-0 p-2 border-t border-slate-900 flex justify-center">
               <button onClick={handleLogout} title="Logout"
-                className="w-10 h-10 rounded-md text-white/70 hover:bg-white/10 hover:text-white flex items-center justify-center">
-                <LogOut className="w-4 h-4" />
+                className="w-12 h-12 rounded-xl text-slate-400 hover:bg-slate-900 hover:text-white flex items-center justify-center transition-all">
+                <LogOut className="w-5 h-5" />
               </button>
             </div>
           </>
         ) : (
           /* DESKTOP: Full Sidebar */
           <>
-            <div className="flex-shrink-0 p-3 border-b border-white/10">
-              <div className="flex items-center gap-2 mb-3">
-                <Logo variant="light" className="scale-75 origin-left" />
+            <div className="flex-shrink-0 p-4 border-b border-slate-900 h-16 flex items-center">
+              <Logo variant="light" className="scale-90 origin-left" />
+            </div>
+            <div className="p-4 border-b border-slate-900/50 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-base shadow-sm">
+                {user?.name?.charAt(0).toUpperCase()}
               </div>
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
-                  <span className="text-xs font-bold text-white">
-                    {user?.name?.charAt(0).toUpperCase()}
-                  </span>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-white truncate">
-                    {user?.name}
-                  </p>
-                  <span className="inline-block text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-white/70 mt-0.5">
-                    Job Seeker
-                  </span>
-                </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-white truncate">{user?.name}</p>
+                <span className="inline-block text-[10px] px-2 py-0.5 rounded bg-slate-800 text-indigo-400 font-bold uppercase tracking-wider mt-0.5">
+                  Job Seeker
+                </span>
               </div>
             </div>
-            <nav className="flex-1 overflow-y-auto py-2 px-2">
+            
+            <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
               {navItems.map(item => (
                 <Link
                   key={item.path}
                   to={item.path}
-                  className={`flex items-center gap-2.5 px-3 py-2 rounded-md text-sm mb-0.5 transition
+                  className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm transition-all
                     ${isActive(item.path)
-                      ? 'bg-white/15 text-white font-medium'
-                      : 'text-white/70 hover:bg-white/10 hover:text-white'
+                      ? 'bg-indigo-600 text-white font-semibold shadow-lg shadow-indigo-600/10'
+                      : 'text-slate-400 hover:bg-slate-900 hover:text-white'
                     }`}
                 >
                   <item.icon className="w-4 h-4 flex-shrink-0" />
@@ -202,9 +220,9 @@ const CandidateLayout: React.FC = () => {
                 </Link>
               ))}
             </nav>
-            <div className="flex-shrink-0 p-2 border-t border-white/10">
+            <div className="flex-shrink-0 p-3 border-t border-slate-900">
               <button onClick={handleLogout}
-                className="flex items-center gap-2.5 w-full px-3 py-2 rounded-md text-sm text-white/70 hover:bg-white/10 hover:text-white transition"
+                className="flex items-center gap-3 w-full px-3.5 py-2.5 rounded-xl text-sm text-slate-400 hover:bg-slate-900 hover:text-white transition-all font-semibold"
               >
                 <LogOut className="w-4 h-4 flex-shrink-0" />
                 <span>Logout</span>
@@ -214,34 +232,38 @@ const CandidateLayout: React.FC = () => {
         )}
       </aside>
 
-      {/* ─── MAIN CONTENT AREA ──────────────────────────────────────────────── */}
+      {/* MAIN CONTENT AREA */}
       <div className={`flex flex-col min-h-screen transition-all duration-300
-        ${isCollapsed ? 'md:ml-14' : 'md:ml-60'} ml-0`}>
+        ${isCollapsed ? 'md:ml-16' : 'md:ml-64'} ml-0`}>
         
         {/* Header / Top Bar */}
-        <header className="h-14 bg-white border-b border-gray-100 flex items-center justify-between px-4 md:px-6 sticky top-0 z-20">
+        <header className="h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-850 flex items-center justify-between px-4 md:px-6 sticky top-0 z-20 transition-colors duration-300">
           <div className="flex items-center gap-4">
-            <button className="md:hidden p-1.5 text-gray-500 hover:bg-gray-100 rounded-md" onClick={() => setIsOpen(true)}>
+            <button className="md:hidden p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl" onClick={() => setIsOpen(true)}>
               <Menu className="w-5 h-5" />
             </button>
-            <div className="hidden md:flex items-center gap-2">
-              <button onClick={() => setIsCollapsed(!isCollapsed)} className="p-1 text-gray-400 hover:text-[#1B4D3E] transition-colors">
+            <div className="hidden md:flex items-center gap-3">
+              <button onClick={() => setIsCollapsed(!isCollapsed)} className="p-1.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all">
                 {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
               </button>
-              <h1 className="text-sm font-semibold text-gray-800">Candidate Dashboard</h1>
+              <div className="h-4 w-px bg-slate-200 dark:bg-slate-800" />
+              {getBreadcrumbs()}
             </div>
-            <h1 className="md:hidden text-sm font-semibold text-gray-800">TrustHire</h1>
+            <div className="md:hidden">
+              <Logo />
+            </div>
           </div>
 
           <div className="flex items-center gap-3">
+            <ThemeToggle />
             <NotificationBell />
-            <div className="h-8 w-px bg-gray-100 mx-1" />
-            <div className="flex items-center gap-2.5 pl-1">
+            <div className="h-8 w-px bg-slate-100 dark:bg-slate-800 mx-1" />
+            <div className="flex items-center gap-3 pl-1">
               <div className="hidden sm:block text-right">
-                <p className="text-xs font-bold text-gray-900 leading-tight">{user?.name}</p>
-                <p className="text-[10px] text-gray-500 uppercase tracking-tight">Candidate</p>
+                <p className="text-sm font-bold text-slate-900 dark:text-white leading-none">{user?.name}</p>
+                <p className="text-[10px] text-slate-400 uppercase tracking-widest mt-1 font-bold">Candidate</p>
               </div>
-              <div className="w-8 h-8 rounded-full bg-[#1B4D3E]/10 flex items-center justify-center text-[#1B4D3E] font-bold text-xs ring-1 ring-gray-200">
+              <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold text-sm">
                 {user?.name?.charAt(0).toUpperCase()}
               </div>
             </div>
@@ -256,22 +278,6 @@ const CandidateLayout: React.FC = () => {
         </main>
       </div>
 
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&family=DM+Serif+Display&display=swap');
-        
-        :root {
-          --font-heading: 'DM Serif Display', serif;
-          --font-body: 'DM Sans', sans-serif;
-        }
-
-        body {
-          font-family: var(--font-body);
-        }
-
-        h1, h2, h3, .heading-font {
-          font-family: var(--font-heading);
-        }
-      `}</style>
     </div>
   );
 };

@@ -85,6 +85,15 @@ const startCronJob = () => {
     }
   });
 
+  // Process email queue - every minute
+  cron.schedule('*/1 * * * *', async () => {
+    try {
+      await emailService.processEmailQueue();
+    } catch (error) {
+      console.error('[CRON Error - Email Queue Processing]', error);
+    }
+  });
+
   console.log('Cron service scheduled.');
 };
 

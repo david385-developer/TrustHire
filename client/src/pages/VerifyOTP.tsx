@@ -4,6 +4,8 @@ import { MailCheck, RefreshCw, ArrowLeft, Loader2, ShieldCheck, Lock, ArrowRight
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
+import ThemeToggle from '../components/common/ThemeToggle';
+import AnimatedPage from '../components/common/AnimatedPage';
 
 const VerifyOTP: React.FC = () => {
   const location = useLocation();
@@ -124,99 +126,115 @@ const VerifyOTP: React.FC = () => {
     }
   };
 
+  const lockSecsFormat = () => {
+    return `${Math.floor(lockSecsLeft / 60)}m ${lockSecsLeft % 60}s`;
+  };
+
   const isLocked = lockSecsLeft > 0;
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-      <div className="max-w-sm bg-white rounded-lg shadow-sm border border-gray-200 p-5">
-        <div className="mb-6">
-          <div className="w-10 h-10 bg-emerald-50 rounded-lg flex items-center justify-center mb-2 text-[#1B4D3E] scale-90">
-            <MailCheck className="w-5 h-5" />
-          </div>
-          <h2 className="text-lg font-bold text-gray-900 leading-tight mb-1">Verify Your Email</h2>
-          <p className="text-xs text-gray-500 mb-4">
-            We've sent a 6-digit code to <span className="text-gray-900 font-bold">{email}</span>
-          </p>
+    <AnimatedPage>
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 px-4 transition-colors duration-300 relative">
+        <div className="absolute top-4 right-4 z-50">
+          <ThemeToggle />
         </div>
 
-        {isLocked && (
-          <div className="mb-4 p-3 bg-amber-50 border border-amber-100 rounded-lg flex items-center gap-3">
-             <Lock className="w-4 h-4 text-amber-500" />
-             <div className="text-[11px] text-amber-800 font-medium">
-               Locked for {Math.floor(lockSecsLeft/60)}m {lockSecsLeft%60}s
-             </div>
-          </div>
-        )}
-
-        <div className="space-y-6">
-          <div className="flex justify-between gap-2 mb-4">
-            {otp.map((digit, i) => (
-              <input
-                key={i}
-                ref={el => { inputRefs.current[i] = el; }}
-                type="text"
-                inputMode="numeric"
-                maxLength={1}
-                value={digit}
-                disabled={status === 'loading' || status === 'success' || isLocked}
-                onChange={e => handleChange(i, e.target.value)}
-                onKeyDown={e => handleKeyDown(i, e)}
-                onPaste={i === 0 ? handlePaste : undefined}
-                className={`w-10 h-11 bg-white border rounded-md text-center text-lg font-bold transition-all outline-none 
-                  ${status === 'success' ? 'border-emerald-500 bg-emerald-50 text-emerald-600' : 
-                    status === 'error' ? 'border-red-500 bg-red-50 text-red-600' : 
-                    digit ? 'border-[#1B4D3E] ring-1 ring-[#1B4D3E]' : 'border-gray-200 focus:border-[#1B4D3E]'}
-                  ${isLocked ? 'opacity-40 cursor-not-allowed' : ''}`}
-              />
-            ))}
-          </div>
-
-          {errorMsg && !isLocked && (
-            <div className="flex items-center gap-2 p-2 bg-red-50 text-xs text-red-600 mb-3 rounded border border-red-100">
-              <RefreshCw className="w-3 h-3" />
-              <span>{errorMsg}</span>
+        <div className="w-full max-w-md">
+          <div className="glass-card rounded-2xl border border-slate-200/60 dark:border-slate-800/60 p-8 w-full shadow-lg">
+            
+            <div className="mb-6 flex flex-col items-center text-center">
+              <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-950/40 rounded-full flex items-center justify-center mb-4 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/30">
+                <MailCheck className="w-6 h-6" />
+              </div>
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Verify Your Email</h2>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                We've sent a 6-digit code to <span className="text-slate-800 dark:text-slate-200 font-bold">{email}</span>
+              </p>
             </div>
-          )}
 
-          <button
-            onClick={handleVerify}
-            disabled={status === 'loading' || status === 'success' || isLocked}
-            className="w-full py-2 bg-[#1B4D3E] text-white rounded-md font-bold text-sm hover:bg-[#0F3D2E] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-          >
-            {status === 'loading' ? (
-              <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Verifying</>
-            ) : status === 'success' ? (
-              <><ShieldCheck className="w-3.5 h-3.5" /> Verified</>
-            ) : (
-              <>Complete Verification <ArrowRight className="w-3.5 h-3.5" /></>
+            {isLocked && (
+              <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 rounded-xl flex items-center gap-3">
+                 <Lock className="w-5 h-5 text-amber-500" />
+                 <div className="text-xs text-amber-800 dark:text-amber-300 font-semibold">
+                   Too many failed attempts. Locked for {lockSecsFormat()}.
+                 </div>
+              </div>
             )}
-          </button>
 
-          <div className="flex flex-col items-center gap-4 pt-4 border-t border-gray-50">
-            <div className="flex items-center justify-between w-full">
-              <span className="text-xs text-gray-400 font-medium">No code?</span>
-              {resendCooldown > 0 ? (
-                <span className="text-xs text-gray-400 font-bold">Resend in {resendCooldown}s</span>
-              ) : (
-                <button
-                  onClick={handleResend}
-                  disabled={resendLoading || isLocked}
-                  className="text-xs text-[#1B4D3E] font-bold hover:underline flex items-center gap-1"
-                >
-                  {resendLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
-                  Resend Code
-                </button>
+            <div className="space-y-6">
+              <div className="flex justify-between gap-2.5">
+                {otp.map((digit, i) => (
+                  <input
+                    key={i}
+                    ref={el => { inputRefs.current[i] = el; }}
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={1}
+                    value={digit}
+                    disabled={status === 'loading' || status === 'success' || isLocked}
+                    onChange={e => handleChange(i, e.target.value)}
+                    onKeyDown={e => handleKeyDown(i, e)}
+                    onPaste={i === 0 ? handlePaste : undefined}
+                    className={`w-12 h-14 bg-white dark:bg-slate-900 border rounded-xl text-center text-xl font-bold transition-all outline-none focus:ring-2 
+                      ${status === 'success' ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 focus:ring-emerald-500' : 
+                        status === 'error' ? 'border-red-500 bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 focus:ring-red-500' : 
+                        digit ? 'border-indigo-600 dark:border-indigo-500 focus:ring-indigo-500' : 'border-slate-300 dark:border-slate-700 focus:ring-indigo-500'}
+                      ${isLocked ? 'opacity-40 cursor-not-allowed' : ''}`}
+                  />
+                ))}
+              </div>
+
+              {errorMsg && !isLocked && (
+                <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/30 text-xs text-red-600 dark:text-red-400 rounded-xl">
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>{errorMsg}</span>
+                </div>
               )}
-            </div>
 
-            <Link to="/register" className="text-xs text-gray-400 hover:text-gray-600 font-bold flex items-center gap-1 group mt-3">
-              <ArrowLeft className="w-3 h-3 transition-transform group-hover:-translate-x-1" />
-              Change email address
-            </Link>
+              <button
+                onClick={handleVerify}
+                disabled={status === 'loading' || status === 'success' || isLocked}
+                className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-600 dark:hover:bg-indigo-500 text-white rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 disabled:opacity-50 shadow-lg shadow-indigo-500/10 active:scale-[0.98]"
+              >
+                {status === 'loading' ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> Verifying...</>
+                ) : status === 'success' ? (
+                  <><ShieldCheck className="w-4 h-4" /> Verified</>
+                ) : (
+                  <>Complete Verification <ArrowRight className="w-4 h-4" /></>
+                )}
+              </button>
+
+              <div className="flex flex-col items-center gap-4 pt-6 border-t border-slate-100 dark:border-slate-800">
+                <div className="flex items-center justify-between w-full">
+                  <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Didn't receive code?</span>
+                  {resendCooldown > 0 ? (
+                    <span className="text-xs text-slate-400 dark:text-slate-500 font-bold">Resend in {resendCooldown}s</span>
+                  ) : (
+                    <button
+                      onClick={handleResend}
+                      disabled={resendLoading || isLocked}
+                      className="text-xs text-indigo-600 dark:text-indigo-400 font-bold hover:underline flex items-center gap-1.5"
+                    >
+                      {resendLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                      Resend Code
+                    </button>
+                  )}
+                </div>
+
+                <Link 
+                  to="/register" 
+                  className="text-xs text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 font-semibold flex items-center gap-1.5 group mt-2"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5 transition-transform group-hover:-translate-x-1" />
+                  Change email address
+                </Link>
+              </div>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </AnimatedPage>
   );
 };
 
